@@ -83,7 +83,7 @@ def _radial_profile(data, center, mask=None):
 	resid_bin = np.bincount(r.ravel(), residual.ravel()**2)
 	std_error = np.zeros_like(radialprofile)
 	valid_samples = np.where(nr > 1)
-	std_error[valid_samples] = resid_bin[valid_samples] / (nr[valid_samples] - 1)
+	std_error[valid_samples] = np.sqrt(resid_bin[valid_samples] / (nr[valid_samples] - 1))
 	return np.vstack((r_pixel, radialprofile, std_error)).T
 
 def radial_profile_2d(data, center, mask=None):
