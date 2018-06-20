@@ -75,7 +75,7 @@ def _radial_profile(data, center, mask=None):
 		r_mask[np.where(mask==1)] = 1
 		nr_mask = np.bincount(r.ravel(), r_mask.ravel())
 		nr = nr - nr_mask
-	radialprofile = np.zeros_like(nr)
+	radialprofile = np.zeros_like(nr, dtype=float)
 	r_pixel = np.unique(r.ravel())  # sorted
 	nomaskr = np.where(nr>0)
 	radialprofile[nomaskr] = tbin[nomaskr] / nr[nomaskr]
@@ -84,7 +84,7 @@ def _radial_profile(data, center, mask=None):
 	else:
 		residual = maskdata - radialprofile[r]
 	resid_bin = np.bincount(r.ravel(), residual.ravel()**2)
-	std_error = np.zeros_like(radialprofile)
+	std_error = np.zeros_like(radialprofile, dtype=float)
 	valid_samples = np.where(nr > 1)
 	std_error[valid_samples] = np.sqrt(resid_bin[valid_samples] / (nr[valid_samples] - 1))
 	return np.vstack((r_pixel, radialprofile, std_error)).T
