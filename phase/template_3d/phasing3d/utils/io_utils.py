@@ -90,36 +90,36 @@ def write_output_h5(path, diff, diff_ret, support, support_ret, \
     import os, h5py
     fnam = os.path.join(path, 'output.h5')
     if_exists_del(fnam)
-    
+
     emods = np.array(emods)
     econs = np.array(econs)
-    
+
     f = h5py.File(fnam, 'w')
-    f.create_dataset('data', chunks = diff.shape, data = diff, compression='gzip')
-    f.create_dataset('data retrieved', chunks = diff.shape, data = diff_ret, compression='gzip')
-    f.create_dataset('sample support', chunks = support.shape, data = support.astype(np.int16), compression='gzip')
-    f.create_dataset('sample support retrieved', chunks = support_ret.shape, data = support_ret, compression='gzip')
-    f.create_dataset('good pixels', chunks = good_pix.shape, data = good_pix.astype(np.int16), compression='gzip')
-    f.create_dataset('modulus error', chunks = emods.shape, data = emods, compression='gzip')
-    f.create_dataset('convergence metric', chunks = econs.shape, data = np.array(econs), compression='gzip')
+    f.create_dataset('data', chunks = True, data = diff, compression='gzip')
+    f.create_dataset('data retrieved', chunks = True, data = diff_ret, compression='gzip')
+    f.create_dataset('sample support', chunks = True, data = support.astype(np.int16), compression='gzip')
+    f.create_dataset('sample support retrieved', chunks = True, data = support_ret, compression='gzip')
+    f.create_dataset('good pixels', chunks = True, data = good_pix.astype(np.int16), compression='gzip')
+    f.create_dataset('modulus error', chunks = True, data = emods, compression='gzip')
+    f.create_dataset('convergence metric', chunks = True, data = np.array(econs), compression='gzip')
     if efids is not None :
         efids = np.array(efids)
-        f.create_dataset('fidelity error', chunks = efids.shape, data = efids, compression='gzip')
+        f.create_dataset('fidelity error', chunks = True, data = efids, compression='gzip')
     else :
-        f.create_dataset('fidelity error', chunks = emods.shape, data = -np.ones_like(emods), compression='gzip')
+        f.create_dataset('fidelity error', chunks = True, data = -np.ones_like(emods), compression='gzip')
     if solid_unit is not None:
-        f.create_dataset('sample init', chunks = solid_unit.shape, data = solid_unit, compression='gzip')
+        f.create_dataset('sample init', chunks = True, data = solid_unit, compression='gzip')
     else:
-        f.create_dataset('sample init', data= 'Randomly initiate')    
-    f.create_dataset('sample retrieved', chunks = (1,) + solid_units_ret.shape[1 :], data = solid_units_ret, compression='gzip')
+        f.create_dataset('sample init', data= 'Randomly initiate')
+    f.create_dataset('sample retrieved', chunks = True, data = solid_units_ret, compression='gzip')
     if PRTF is not None and PRTF_rav is not None :
-        f.create_dataset('PRTF', chunks = PRTF.shape, data = PRTF, compression='gzip')
-        f.create_dataset('PRTF radial average', chunks = PRTF_rav.shape, data = PRTF_rav, compression='gzip')
+        f.create_dataset('PRTF', chunks = True, data = PRTF, compression='gzip')
+        f.create_dataset('PRTF radial average', chunks = True, data = PRTF_rav, compression='gzip')
     if PSD is not None and PSD_I is not None :
-        f.create_dataset('PSD', chunks = PSD.shape, data = PSD, compression='gzip')
-        f.create_dataset('PSD data', chunks = PSD_I.shape, data = PSD_I, compression='gzip')
+        f.create_dataset('PSD', chunks = True, data = PSD, compression='gzip')
+        f.create_dataset('PSD data', chunks = True, data = PSD_I, compression='gzip')
     if B_rav is not None :
-        f.create_dataset('background radial average', chunks = B_rav.shape, data = B_rav, compression='gzip')
+        f.create_dataset('background radial average', chunks = True, data = B_rav, compression='gzip')
 
     # read the config file and dump it into the h5 file
     """
@@ -130,7 +130,7 @@ def write_output_h5(path, diff, diff_ret, support, support_ret, \
     f.create_dataset('config file', data = np.array(h))
     """
     f.close()
-    return 
+    return
 
 
 def read_output_h5(path):
@@ -163,7 +163,7 @@ def read_output_h5(path):
     #config_file    = f['config file'].value
 
     f.close()
-    
+
     return diff, diff_ret, support, support_ret, \
         good_pix, solid_unit, solid_units_ret, emods, econs, efids, T, T_rav, PSD, PSD_rav, B_rav
 
@@ -172,7 +172,7 @@ def write_input_h5(path, diff, support, good_pix, solid_known, config):
     import os, h5py
     fnam = os.path.join(path, 'input.h5')
     if_exists_del(fnam)
-    
+
     f = h5py.File(fnam, 'w')
     f.create_dataset('data', data = diff)
     f.create_dataset('sample support', data = support.astype(np.int16))
@@ -186,17 +186,17 @@ def write_input_h5(path, diff, support, good_pix, solid_known, config):
         h += line
     f.create_dataset('config file', data = np.array(h))
     f.close()
-    return 
+    return
 
 
 def read_input_h5(fnam):
     import h5py
-    
+
     f = h5py.File(fnam, 'r')
     diff     = f['data'].value
     support  = f['sample support'].value.astype(np.bool)
     good_pix = f['good pixels'].value.astype(np.bool)
-    
+
     if 'sample' in f.keys():
         solid_known = f['sample'].value
     else :
@@ -220,18 +220,18 @@ def read_input_h5(fnam):
 def binary_out(array, fnam, endianness='little', appendType=True, appendDim=True):
     """Write a n-d array to a binary file."""
     arrayout = np.array(array)
-    
+
     if appendDim == True :
         fnam_out = fnam + '_'
         for i in arrayout.shape[:-1] :
-            fnam_out += str(i) + 'x' 
+            fnam_out += str(i) + 'x'
         fnam_out += str(arrayout.shape[-1]) + '_' + str(arrayout.dtype) + '.bin'
     else :
         fnam_out = fnam
-    
+
     if sys.byteorder != endianness:
         arrayout.byteswap(True)
-    
+
     arrayout.tofile(fnam_out)
 
 
@@ -242,21 +242,21 @@ def binary_in(fnam, ny = None, nx = None, dtype = None, endianness='little', dim
         tstr = fnam[:-4].split('_')[-1]
         if dtype is None :
             dtype = np.dtype(tstr)
-        
+
         # get the dimensions from the 'asfasfs_89x12x123_' bit
         b    = fnam[:fnam.index(tstr)-1].split('_')[-1]
         dims = b.split('x')
         dims = np.array(dims, dtype=np.int)
         dims = tuple(dims)
-        
+
         arrayout = np.fromfile(fnam, dtype=dtype).reshape( dims )
-    
+
     else :
         arrayout = np.fromfile(fnam, dtype=dtype).reshape( (ny,nx) )
-    
+
     if sys.byteorder != endianness:
         arrayout.byteswap(True)
-    
+
     return arrayout
 
 
@@ -266,11 +266,11 @@ def if_exists_del(fnam):
     output_dir = os.path.split( os.path.realpath(fnam) )[0]
     if os.path.exists(output_dir) == False :
         raise ValueError('specified path does not exist: ', output_dir)
-    
+
     if os.path.isdir(output_dir) == False :
         raise ValueError('specified path is not a path you dummy: ', output_dir)
-    
-    # see if it exists and if so delete it 
+
+    # see if it exists and if so delete it
     # (probably dangerous but otherwise this gets really anoying for debuging)
     if os.path.exists(fnam):
         print '\n', fnam ,'file already exists, deleting the old one and making a new one'

@@ -142,7 +142,7 @@ class simulation():
 		'''
 		return a lookup table, shape=(max(atom_index)+1,max(pix_r)+1)
 		[NOTICE!] for those atom index or q that are not used in simulation, the value of corresponding cell
-		of the return table is ZERO ! AND, the atom index start from 1 (which means the first row of the 
+		of the return table is ZERO ! AND, the atom index start from 1 (which means the first row of the
 		returned table is always zero)!
 		'''
 		def gaussian(a, b, c, q):
@@ -289,8 +289,8 @@ def single_process(pdb_file, param, euler_mode='random', euler_order='zxz', eule
 		savef = h5py.File(os.path.join(save_dir, 'spipy_adu_simulation.h5'), 'w')
 		savef.create_dataset('oversampling_rate', data=dataset['oversampling_rate'])
 		savef.create_dataset('rotation_order', data=dataset['rotation_order'])
-		savef.create_dataset('patterns', data=dataset['patterns'], chunks=dataset['patterns'].shape, compression="gzip")
-		savef.create_dataset('euler_angles', data=dataset['euler_angles'], chunks=dataset['euler_angles'].shape, compression="gzip")
+		savef.create_dataset('patterns', data=dataset['patterns'], chunks=True, compression="gzip")
+		savef.create_dataset('euler_angles', data=dataset['euler_angles'], chunks=True, compression="gzip")
 		grp = savef.create_group('simu_parameters')
 		for k, v in dataset['simu_parameters'].iteritems():
 			grp.create_dataset(k, data=v)
@@ -352,11 +352,9 @@ def multi_process(save_dir, pdb_file, param, euler_mode='random', euler_order='z
 	savef = h5py.File(os.path.join(save_dir, 'spipy_adu_simulation.h5'), 'w')
 	savef.create_dataset('oversampling_rate', data=oversampling_rate)
 	savef.create_dataset('rotation_order', data=euler_order)
-	savef.create_dataset('patterns', data=patterns, chunks=patterns.shape, compression="gzip")
-	savef.create_dataset('euler_angles', data=eul_angles, chunks=eul_angles.shape, compression="gzip")
+	savef.create_dataset('patterns', data=patterns, chunks=True, compression="gzip")
+	savef.create_dataset('euler_angles', data=eul_angles, chunks=True, compression="gzip")
 	grp = savef.create_group('simu_parameters')
 	for k, v in param.iteritems():
 		grp.create_dataset(k, data=v)
 	savef.close()
-
-
