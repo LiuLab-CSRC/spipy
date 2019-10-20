@@ -182,17 +182,6 @@ fi
 if [ $? -ne 0 ];then echo "Command failed. Exit"; exit 1;fi
 
 
-# extract test data
-echo "==> Extracting test data"
-cd $root_folder/../test_spipy
-tar -xzf test.tgz
-tar -xzf analyse/analyse.tgz -C ./analyse/
-tar -xzf image/image.tgz -C ./image/
-tar -xzf merge/merge.tgz -C ./merge/
-tar -xzf phase/phase.tgz -C ./phase/
-tar -xzf simulate/simulate.tgz -C ./simulate/
-
-
 # check conda env
 echo "==> Checking conda environment"
 
