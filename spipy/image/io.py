@@ -40,7 +40,7 @@ def help(module):
 def writeccp4(volume, save_file):
 	save_path = os.path.dirname(save_file)
 	if not os.path.exists(save_path):
-		raise ValueError("Directory '" + save_path is "' invalid !")
+		raise ValueError("Directory '" + save_path + "' is invalid !")
 	if not len(volume.shape)==3:
 		raise ValueError("Input volume should be 3D data !")
 

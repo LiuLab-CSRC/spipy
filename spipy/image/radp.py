@@ -147,7 +147,7 @@ def radp_norm_2d(ref_Iq, data, center, mask=None):
 		return data
 
 	stop_rad = max(sum_ref_Iq[0], sum_radp[0])
-	norm_factor[stop_rad:normed_len] = ref_Iq[stop_rad:normed_len]/radialprofile[stop_rad:normed_len]
+	norm_factor[stop_rad:normed_len] = (ref_Iq[stop_rad:normed_len]+1e-9)/(radialprofile[stop_rad:normed_len]+1e-9)
 
 	newdata = np.zeros(data.shape)
 	for ind,rad in enumerate(np.arange(r.min(), r.max()+1)):
@@ -188,7 +188,7 @@ def radp_norm_3d(ref_Iq, data, center, mask=None):
 		return data
 
 	stop_rad = max(sum_ref_Iq[0], sum_radp[0])
-	norm_factor[stop_rad:normed_len] = ref_Iq[stop_rad:normed_len]/radialprofile[stop_rad:normed_len]
+	norm_factor[stop_rad:normed_len] = (ref_Iq[stop_rad:normed_len]+1e-9)/(radialprofile[stop_rad:normed_len]+1e-9)
 
 	newdata = np.zeros(data.shape)
 	for ind,rad in enumerate(np.arange(r.min(), r.max()+1)):
