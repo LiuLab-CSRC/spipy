@@ -47,7 +47,7 @@ def find_mass(aux_dir, elem):
         ind = 1
         for l, m in lines:
             if l.lower() == elem.lower():
-                return [ind,float(m)]
+                return (ind,float(m))
             ind += 1
 
 def find_radii(aux_dir, elem):
@@ -60,20 +60,25 @@ def find_radii(aux_dir, elem):
 def make_scatt_list(atom_types, aux_dir, eV):
     scatt_list = OrderedDict()
     for elem in atom_types:
-        (f0,f1,) = interp_scattering(aux_dir, elem)
-        _,mass   = find_mass(aux_dir, elem)
-        scatt_list[elem.upper()] = [float(f0(eV)), mass]
+        atom_ind, mass = find_mass(aux_dir, elem)
+        if eV is not None:
+            (f0,f1,)  = interp_scattering(aux_dir, elem)
+            scatt_list[elem.upper()] = [atom_ind, float(f0(eV)), mass]
+        else:
+            scatt_list[elem.upper()] = [atom_ind, atom_ind, mass]
     return scatt_list
 
 def wavelength_in_A_to_eV(wavelength_in_A):
     return 12398.419 / wavelength_in_A
 
-def append_atom(atomlist, atom, pdb_line):
-    atomlist.append([atom[0],
+def append_atom(atomlist, scatt, pdb_line):
+    # scatt = [atom_ind, f0, mass]
+    atomlist.append([scatt[0],
                     float(pdb_line[30:38].strip()),
                     float(pdb_line[38:46].strip()),
                     float(pdb_line[46:54].strip()),
-                    atom[1]])
+                    scatt[1],
+                    scatt[2]])
 
 def get_atom_coords(pdb_file, scatt):
     tmp_atoms = []
@@ -90,6 +95,7 @@ def get_atom_coords(pdb_file, scatt):
                     else:
                         s = line[-2:] + " not in the current atom list"
                         logging.info(s)
+    # returned array shape is (N,6), columns=(atom_ind, x, y, z, f0, mass)
     return np.asarray(tmp_atoms)
 
 def read_symmetry(pdb_file):
@@ -111,9 +117,10 @@ def read_symmetry(pdb_file):
 
 def apply_symmetry(atoms, sym_list, trans_list):
     num_atoms = len(atoms)
+    inds = np.asarray([atoms[:,0]]).T.copy()
     org_atoms = atoms[:,1:4].T.copy()
-    f0s = np.asarray([atoms[:,0]]).T.copy()
-    ms = np.asarray([atoms[:,4]]).T.copy()
+    f0s = np.asarray([atoms[:,4]]).T.copy()
+    ms = np.asarray([atoms[:,5]]).T.copy()
     total_ms = len(sym_list)*np.sum(ms) / 1.0e6
     msg = "Mass of particle (MDa), %.3f"%(total_ms)
     logging.info(msg)
@@ -122,11 +129,13 @@ def apply_symmetry(atoms, sym_list, trans_list):
         sym_op = sym_list[i]
         trans = trans_list[i]
         vecs = sym_op.dot(org_atoms).T + trans
-        to_app = np.concatenate((f0s, vecs, ms), axis=1)
+        to_app = np.concatenate((inds, vecs, f0s, ms), axis=1)
         out_atoms[i] = to_app.copy()
-    return out_atoms.reshape(-1,5)
+    # out_atoms, shape=(N',6), columns=(atom_ind, x, y, z, f0, mass)
+    return out_atoms.reshape(-1,6)
 
 def atoms_to_density_map(atoms, voxelSZ):
+    # atoms, shape=(N,6), columns=(atom_ind, x, y, z, f0, mass)
     (x, y, z) = atoms[:,1:4].T.copy()
     (x_min, x_max) = (x.min(), x.max())
     (y_min, y_max) = (y.min(), y.max())
@@ -138,7 +147,7 @@ def atoms_to_density_map(atoms, voxelSZ):
         R += 1
     msg = "Length of particle (voxels), %d"%(R)
     logging.info(msg)
-    elec_den = atoms[:,0].copy()
+    elec_den = atoms[:,4].copy()
 
     x = (x-x_min)/voxelSZ
     y = (y-y_min)/voxelSZ

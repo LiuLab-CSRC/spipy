@@ -116,7 +116,7 @@ def draw_hammer(logi_lati, save_dir=None):
 	logitute = n[:,0]
 	latitute = n[:,1]
 	P = n[:,2]
-	T_ = P/(P.max()/20)
+	T_ = P/(P.max()/20.0)
 	gci = ax.scatter(logitute,latitute,c=P,s=np.pi*T_**2,alpha=0.5,marker='o',cmap='jet')
 	plt.colorbar(gci)
 	plt.grid(True)

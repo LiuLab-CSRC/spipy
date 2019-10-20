@@ -38,9 +38,9 @@ def mk_gaus(shape, sigma):
 
 def mk_Fgaus(shape, sigma):
     i, j, k = np.indices(shape)
-    i = (i.astype(np.float64) - shape[0]/2)/ float(shape[0])
-    j = (j.astype(np.float64) - shape[1]/2)/ float(shape[1])
-    k = (k.astype(np.float64) - shape[2]/2)/ float(shape[2])
+    i = (i.astype(np.float64) - shape[0]//2)/ float(shape[0])
+    j = (j.astype(np.float64) - shape[1]//2)/ float(shape[1])
+    k = (k.astype(np.float64) - shape[2]//2)/ float(shape[2])
     r       = i**2 + j**2 + k**2
     gaus    = np.exp(-2. * r * (np.pi * sigma)**2)
     return gaus

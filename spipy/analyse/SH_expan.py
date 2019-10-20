@@ -43,7 +43,7 @@ class _sphere_des():
 			print("     |- 'volume' : numpy.ndarray(size0, size1, size2)")
 			print("     |- 'mask' : numpy.ndarray(size1, size2) or None\n")
 			raise ValueError("Input data file format error. Exit")
-		self.data_center = (self.data.shape[0]/2,self.data.shape[1]/2,self.data.shape[2]/2)
+		self.data_center = (self.data.shape[0]//2,self.data.shape[1]//2,self.data.shape[2]//2)
 		self.dsize = self.data.shape
 		self.rmax = min(self.dsize) - max(self.data_center)
 	

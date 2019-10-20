@@ -14,7 +14,7 @@ if __name__=="__main__":
 	f = h5py.File(fi,'r')
 	prtf = np.abs(np.fft.fftshift(f['PRTF'][()]))
 	size = prtf.shape
-	prtf_rav = radp.radial_profile(prtf,[size[0]/2,size[1]/2,size[2]/2])
+	prtf_rav = radp.radial_profile(prtf,[size[0]//2,size[1]//2,size[2]//2])
 	sr = np.abs(np.fft.fftshift(f['sample retrieved'][()]))
 	dr = np.abs(np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(sr))))
 	d = np.abs(np.fft.fftshift(f['data'][()]))
@@ -24,15 +24,15 @@ if __name__=="__main__":
 	plt.figure(figsize=(20,10))
 
 	plt.subplot(2,3,1)
-	plt.imshow(np.log(1+sr[:,size[1]/2,:]))
+	plt.imshow(np.log(1+sr[:,size[1]//2,:]))
 	plt.title('retrieved (real space)')
 
 	plt.subplot(2,3,2)
-	plt.imshow(np.log(1+dr[:,size[1]/2,:]))
+	plt.imshow(np.log(1+dr[:,size[1]//2,:]))
 	plt.title('retrieved (reciprocal space)')
 
 	plt.subplot(2,3,3)
-	plt.imshow(np.log(1+d[:,size[1]/2,:]))
+	plt.imshow(np.log(1+d[:,size[1]//2,:]))
 	plt.title('input (reciprocal space)')
 
 	ax1 = plt.subplot(2,3,4)

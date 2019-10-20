@@ -1,6 +1,5 @@
-__all__ = ['sim', 'sim_adu']
+__all__ = ['sim_adu']
 
-from . import sim
 from . import sim_adu
 
 def help(module = None):

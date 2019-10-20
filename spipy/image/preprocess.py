@@ -53,6 +53,14 @@ def help(module):
 		print("     *option: mask (mask area of patterns, 0/1 numpy.ndarray where 1 means masked, shape=(Nx,Ny), default=None)")
 		print("     *option: max_cc ( max cc for patterns to be identified as hits, -1~1 float, default=0.5)")
 		print("    -> Return: label ( 0/1 array, 1 stands for hit, the same order with 'dataset' )")
+	elif module=="cal_correction_factor":
+		print("This fuction calculates polarization correction and effective area correction factor")
+		print("    -> Input: det_size ( [Nx, Ny] )")
+		print("              polarization ( 'x' or 'y' or 'none' )")
+		print("              detd ( detector distance, in mm )")
+		print("              pixsize ( pixel size, in mm )")
+		print("      option: center (detector center, default is None)")
+		print("    -> Output: correction_factor, shape=(Nx, Ny), should be applied to diffraction intensities")
 	else:
 		raise ValueError("No module names "+str(module))
 
@@ -258,20 +266,23 @@ def _transfer(data, no_photon_percent, adu, force_poisson):
 
 
 def hit_find(dataset, background, radii_range=None, mask=None, cut_off=None):
+	'''
 	dataset[np.isnan(dataset)] = 0
 	dataset[np.isinf(dataset)] = 0
 	dataset = np.abs(dataset)
-	background[np.isnan(background)] = 0
-	background[np.isinf(background)] = 0
-	background = np.abs(background)
+	'''
+	maskbackground = background.copy()
+	maskbackground[np.isnan(background)] = 0
+	maskbackground[np.isinf(background)] = 0
+	
 	if mask is not None:
 		maskdataset = dataset * (1-mask)
-		maskbackground = background * (1 - mask)
+		maskbackground = maskbackground * (1 - mask)
 	else:
 		maskdataset = dataset
-		maskbackground = background
+		maskbackground = maskbackground
 	dsize = maskdataset.shape
-	if len(dsize)!=3 or background.shape!=dsize[1:]:
+	if len(dsize)!=3 or maskbackground.shape!=dsize[1:]:
 		raise RuntimeError("Input a set of 2d patterns! background should have the same shape with input!")
 	# calculate
 	chi = np.zeros((dsize[0],1))
@@ -281,7 +292,7 @@ def hit_find(dataset, background, radii_range=None, mask=None, cut_off=None):
 			center[0] = radii_range[0]
 			center[1] = radii_range[1]
 		else:
-			center = saxs.friedel_search(saxs.cal_saxs(maskdataset), np.array(dsize[1:])/2, mask)
+			center = saxs.friedel_search(saxs.cal_saxs(maskdataset), np.array(dsize[1:])//2, mask)
 		inner_shell = radp.circle(2, radii_range[2]) + np.array(center).astype(int)
 		outer_shell = radp.circle(2, radii_range[3]) + np.array(center).astype(int)
 		shell = np.zeros(dsize[1:])
@@ -315,20 +326,23 @@ def hit_find(dataset, background, radii_range=None, mask=None, cut_off=None):
 
 
 def hit_find_pearson(dataset, background, radii_range=None, mask=None, max_cc=0.5):
+	'''
 	dataset[np.isnan(dataset)] = 0
 	dataset[np.isinf(dataset)] = 0
 	dataset = np.abs(dataset)
-	background[np.isnan(background)] = 0
-	background[np.isinf(background)] = 0
-	background = np.abs(background)
+	'''
+	maskbackground = background.copy()
+	maskbackground[np.isnan(background)] = 0
+	maskbackground[np.isinf(background)] = 0
+	
 	if mask is not None:
 		maskdataset = dataset * (1 - mask)
-		maskbackground = background * (1 - mask)
+		maskbackground = maskbackground * (1 - mask)
 	else:
 		maskdataset = dataset
-		maskbackground = background
+		maskbackground = maskbackground
 	dsize = maskdataset.shape
-	if len(dsize)!=3 or background.shape!=dsize[1:]:
+	if len(dsize)!=3 or maskbackground.shape!=dsize[1:]:
 		raise RuntimeError("Input a set of 2d patterns! background should have the same shape with input!")
 	
 	cc = np.zeros(dsize[0])
@@ -359,9 +373,37 @@ def hit_find_pearson(dataset, background, radii_range=None, mask=None, max_cc=0.
 	return label
 
 
+def cal_correction_factor(det_size, polarization, detd, pixsize, center=None):
+	'''
+		calculate polarization correction factor and effective area correction
+		Input:
+			det_size : [Nx, Ny]
+			polarization: 'x' or 'y' or 'none'
+			detd : detector distance, in mm
+			pixsize : pixel size in mm
+			center : detector center, default is None
+	'''
+	if center is None:
+		center = np.array(det_size) / 2.0
+	x, y = np.indices(det_size)
+	x, y = pixsize*(x-center[0]), pixsize*(y-center[1])
+	r_square = x**2 + y**2
+	l_square = r_square + detd**2
 
+	# polarization correction factor
+	# details see http://reference.iucr.org/dictionary/Lorentz%E2%80%93polarization_correction
+	if polarization == 'x':
+		sin_ang_square = 1 - x**2 / l_square
+	elif polarization == 'y':
+		sin_ang_square = 1 - y**2 / l_square
+	else:
+		# no polarization, (1+(cos2A)**2)/2, 2A is scattering angle
+		sin_ang_square = 1 - r_square / l_square / 2
 
+	# effective area correction
+	# 'effective area' means the area component of a pixel 
+	# that perpendicular to the laser direction, which is
+	# the actual area that recieve photons
+	cos_2A_square = detd**2 / l_square
 
-
-
-
+	return sin_ang_square * cos_2A_square

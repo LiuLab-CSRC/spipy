@@ -29,7 +29,7 @@ if __name__ == '__main__':
 	print("...")
 
 	print("\nTest io.pdb2density ...")
-	den = io.pdb2density(pdbfile, 2.0)
+	den = io.pdb2density(pdbfile, 2.0, 1.0)
 	c = len(den)//2
 	plt.imshow(den[c,:,:])
 	plt.show()

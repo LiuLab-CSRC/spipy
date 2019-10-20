@@ -16,6 +16,7 @@ def help(module):
 		print("Calculate voxel density map model according to a given pdb file")
 		print("    -> Input: pdb_file ( str, the path of pdb file )")
 		print("              resolution ( float, the resolution of density map, in Angstrom )")
+		print("      option: lamda (None or float, wavelength of laser, in Anstrom, default=None)")
 		print("    -> Output: densitymap ( numpy.3darray, voxel model of electron density map )")
 	elif module=="cxi_parser":
 		print("Print cxi inner path structures")
@@ -60,23 +61,30 @@ def readccp4(file_path):
 		data['header'] = mrcf.header
 	return data
 
-def _readpdb(pdb_file):
-	# return [mass,x,y,z,0]
+def _readpdb(pdb_file, lamda=None):
+	# return array([[index,x,y,z,obs_electron,mass],...]) , shape=(N,6)
 	from spipy.simulate.code import process_pdb
 	from collections import OrderedDict
 	atom_table_path = os.path.join(os.path.dirname(os.path.dirname(__file__)),'simulate/aux/henke_table')
 
 	atom_types = process_pdb.find_atom_types(pdb_file)
-	atom_scatt = OrderedDict()
-	atom_radii = OrderedDict()
-	for atom in atom_types:
-		index, mass = process_pdb.find_mass(atom_table_path, atom)
-		atom_scatt[atom.upper()] = [index,mass]
-	atoms = process_pdb.get_atom_coords(pdb_file, atom_scatt)
-	return atoms
+	if lamda is not None:
+		eV = process_pdb.wavelength_in_A_to_eV(lamda)
+	else:
+		eV = None
+	# scatt_info =  {atom:[number, f0, mass], ...}
+	scatt_info = process_pdb.make_scatt_list(atom_types, atom_table_path, eV)
+	atoms = process_pdb.get_atom_coords(pdb_file, scatt_info)
+	# process symmetry
+	(s_l, t_l)  = process_pdb.read_symmetry(pdb_file)
+	if len(s_l)*len(t_l)>0:
+		all_atoms = process_pdb.apply_symmetry(atoms, s_l, t_l)
+	else:
+		all_atoms = atoms
+	return all_atoms
 
 def readpdb_full(pdb_file):
-	# return {res-index:[res-name,{atom-name:[atom-index,atom-mass,x,y,z,occupancy,b-factor]}]}
+	# return {res-index:[res-name,{atom-name:[atom-index,atom-mass,x,y,z,occupancy,b-factor], ...}], ...}
 	from spipy.simulate.code import process_pdb
 	atom_table_path = os.path.join(os.path.dirname(os.path.dirname(__file__)),'simulate/aux/henke_table')
 
@@ -108,15 +116,9 @@ def readpdb_full(pdb_file):
 	return pdb
 
 
-def pdb2density(pdb_file, resolution):
+def pdb2density(pdb_file, resolution, lamda=None):
 	from spipy.simulate.code import process_pdb
-	atoms = _readpdb(pdb_file)
-	# process symmetry
-	(s_l, t_l)  = process_pdb.read_symmetry(pdb_file)
-	if len(s_l)*len(t_l)>0:
-		all_atoms = process_pdb.apply_symmetry(atoms, s_l, t_l)
-	else:
-		all_atoms = atoms
+	all_atoms = _readpdb(pdb_file, lamda)    # shape=(N,6)
 	# process density
 	density = process_pdb.atoms_to_density_map(all_atoms, resolution)
 	density = np.abs(process_pdb.low_pass_filter_density_map(density))
@@ -127,7 +129,7 @@ def pdb2density(pdb_file, resolution):
 	ext_part = density[max(center[0]-R,0):min(center[0]+R,density.shape[0]),\
 						max(center[1]-R,0):min(center[1]+R,density.shape[1]),\
 						max(center[2]-R,0):min(center[2]+R,density.shape[2])]
-	ext_cen = (np.array(ext_part.shape)+1)//2
+	ext_cen = np.array(ext_part.shape)//2
 	box = np.zeros((2*R+1,2*R+1,2*R+1))
 	box[R-ext_cen[0]:R+ext_part.shape[0]-ext_cen[0],\
 		R-ext_cen[1]:R+ext_part.shape[1]-ext_cen[1],\

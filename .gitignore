@@ -10,6 +10,7 @@
 *.pdb
 *.ccp4
 .vscode
+info.py
 emc_MAC
 emc_LINUX
 bh_tsne

@@ -143,7 +143,7 @@ def centre_old(array):
     # get the centre of mass of |P|^2
     import scipy.ndimage
     a  = (array.conj() * array).real
-    cm = np.rint(scipy.ndimage.measurements.center_of_mass(a)).astype(np.int)# - np.array(a.shape)/2
+    cm = np.rint(scipy.ndimage.measurements.center_of_mass(a)).astype(np.int)
     #print '\ncentre of mass before shifting', cm
     
     # centre array
@@ -151,14 +151,6 @@ def centre_old(array):
     array = np.roll(array, -cm[1], 1)
     #array = era.multiroll(array, -cm)
 
-    # double check
-    #a  = (array.conj() * array).real
-    #cm = np.rint(scipy.ndimage.measurements.center_of_mass(a)).astype(np.int)# - np.array(a.shape)/2
-    #print 'centre of mass after shifting', cm
-
-    #a  = np.fft.fftshift(a)
-    #cm = np.rint(scipy.ndimage.measurements.center_of_mass(a)).astype(np.int)# - np.array(a.shape)/2
-    #print 'centre of mass after shifting and fft rolling', cm
     return array
     
 def multiroll(x, shift, axis=None):

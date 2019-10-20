@@ -17,7 +17,7 @@ class Plotter:
     def __init__(self, master, config='config.ini', size=200, model=None):
         self.master = master
         self.size = size
-        self.center = self.size/2
+        self.center = self.size//2
         self.max_iter = 0
 
         self.fname = Tk.StringVar()
@@ -229,7 +229,7 @@ class Plotter:
         self.vol = np.fromfile(f, dtype='f8')
         self.size = int(np.ceil(np.power(len(self.vol), 1./3.)))
         self.vol = self.vol.reshape(self.size, self.size, self.size)
-        self.center = self.size/2
+        self.center = self.size//2
         if not self.image_exists:
             self.layernum.set(self.center)
             self.layerSlider.configure(to=int(self.size))

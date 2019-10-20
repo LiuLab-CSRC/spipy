@@ -1,14 +1,19 @@
 import numpy as np
 from spipy.merge import tools as merge
+from spipy.analyse import q as qinfo
 import matplotlib.pyplot as plt
 import time
 
 if __name__ == '__main__':
 	
 	fpath = '../phase/3dvolume.bin'
+	det_size = [95,95]
 	# make mask
-	mask = np.zeros((81,81))
-	mask[39:42,:] = 1
+	mask = np.zeros(det_size)
+	mask[46:49,:] = 1
+
+	q_coor, _, _, _ = qinfo.ewald_mapping(581, 7.9, 0.87, det_size, None)
+	q_coor = q_coor.T.reshape((3,-1))
 
 	print("\n-- Generate 2000 quaternions ..")
 	quats = merge.get_quaternion(Num_level=20)[np.random.choice(16000,2000,replace=False)]
@@ -16,7 +21,8 @@ if __name__ == '__main__':
 	print("\n-- Generate 2000 slices from 3D model ..")
 	model_0 = np.fromfile(fpath).reshape((125,125,125))
 	t1 = time.time()
-	slices = merge.get_slice(model=model_0, quaternions=quats, det_size=[81,81], det_center=None, mask=mask)
+	slices = merge.get_slice(model=model_0, rotations=quats, det_size=det_size, \
+									det_center=None, mask=mask, slice_coor_ori=q_coor)
 	print("Done. Time : "+str(time.time()-t1)+" s")
 	plt.subplot(1,2,1)
 	plt.imshow(np.log(1+slices[0]))
@@ -29,7 +35,8 @@ if __name__ == '__main__':
 	print("\n-- Merge the generated 2000 patterns into a new model ..")
 	model_1 = np.zeros(model_0.shape)
 	t1 = time.time()
-	merge.merge_slice(model=model_1, quaternions=quats, slices=slices, weights=None, det_center=None, mask=mask)
+	merge.merge_slice(model=model_1, rotations=quats, slices=slices, weights=None, \
+									det_center=None, mask=mask, slice_coor_ori=q_coor)
 	print("Done. Time : "+str(time.time()-t1)+" s")
 	plt.figure(figsize=(10,3))
 	plt.subplot(1,3,1)
@@ -45,7 +52,7 @@ if __name__ == '__main__':
 	
 	print("\n-- Calculate poisson likelihood between slices and pattern ..")
 	from spipy.image.preprocess import adu2photon
-	pat = merge.get_slice(model=model_0, quaternions=quats[1000], det_size=[81,81], det_center=None, mask=mask)
+	pat = merge.get_slice(model=model_0, rotations=quats[1000], det_size=det_size, det_center=None, mask=mask)
 	adu, pat = adu2photon(dataset=np.array([pat]), mask=mask, photon_percent=0.1, nproc=1, transfer=True, force_poisson=True)
 	R_jk = np.zeros(len(slices))
 	for ind, s in enumerate(slices):
@@ -57,6 +64,6 @@ if __name__ == '__main__':
 
 	print("\n-- Do maximization ..")
 	# use P_jk for ease
-	W_j_prime = merge.maximization(slices.reshape(2000,81*81), P_jk)
-	plt.imshow(np.log(1+W_j_prime.reshape([81,81])))
+	W_j_prime = merge.maximization(slices.reshape(2000,np.product(det_size)), P_jk)
+	plt.imshow(np.log(1+W_j_prime.reshape(det_size)))
 	plt.show()

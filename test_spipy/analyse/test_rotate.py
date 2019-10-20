@@ -37,13 +37,13 @@ if __name__=="__main__":
 
 	_,ea,_ = rotate.align(d1_small, d2_small, grid_unit, nproc)
 	newd2 = rotate.rot_ext(ea, 'zxz', d2)
-	rf = criterion.r_factor_shell(newd2, d1, np.arange(2, d2.shape[0]/2-1))
+	rf = criterion.r_factor_shell(newd2, d1, np.arange(2, d2.shape[0]//2-1))
 	rf_all = criterion.r_factor(newd2, d1)
 	# calculate reverse
 	rev_ea = -np.array(ea[::-1])
 	rev_d2 = rotate.rot_ext(rev_ea, 'zxz', newd2)
 	rev_rf = criterion.r_factor(rev_d2, d2)
-	rev_rf_shell = criterion.r_factor_shell(rev_d2, d2, np.arange(d2.shape[0]/2-1))
+	rev_rf_shell = criterion.r_factor_shell(rev_d2, d2, np.arange(d2.shape[0]//2-1))
 	# save
 	saved = h5py.File(os.path.join(save_dir,'compare.h5'),'w')
 	saved.create_dataset('fix-mov',data='fix : '+str(fix)+', mov : '+str(mov))

@@ -94,24 +94,24 @@ def friedel_search(pattern, estimated_center, mask=None, small_r=None, large_r=N
 	size = np.array(maskpattern.shape)
 	estimated_center = np.array(estimated_center).astype(int)
 	if small_r is None:
-		search_z = [max(size[0]/20, 20), max(size[1]/20, 20)]
+		search_z = [max(size[0]//20, 20), max(size[1]//20, 20)]
 	else:
 		search_z = [int(small_r)*2, int(small_r)*2]
-	searchzone_top = max(0, estimated_center[0]-search_z[0]/2)
-	searchzone_bottom = min(size[0], estimated_center[0]+search_z[0]/2)
-	searchzone_left = max(0, estimated_center[1]-search_z[1]/2)
-	searchzone_right = min(size[1], estimated_center[1]+search_z[1]/2)
+	searchzone_top = max(0, estimated_center[0]-search_z[0]//2)
+	searchzone_bottom = min(size[0], estimated_center[0]+search_z[0]//2)
+	searchzone_left = max(0, estimated_center[1]-search_z[1]//2)
+	searchzone_right = min(size[1], estimated_center[1]+search_z[1]//2)
 	search_zone = np.mgrid[searchzone_top : searchzone_bottom,\
 					searchzone_left : searchzone_right]
 	if large_r is None:
-		fred_z = [min(max(size[0]/2, 50),size[0]), min(max(size[1]/2, 50),size[1])]
+		fred_z = [min(max(size[0]//2, 50),size[0]), min(max(size[1]//2, 50),size[1])]
 	else:
 		fred_z = [int(large_r)*2, int(large_r)*2]
 	score = np.inf
 	center = np.array([0,0], dtype=int)
 
 	for cen in search_zone.T.reshape(np.product(search_zone[0].shape),2):
-		fred_zone = np.mgrid[cen[0]-fred_z[0]/2:cen[0]+fred_z[0]/2,cen[1]-fred_z[1]/2:cen[1]+fred_z[1]/2]
+		fred_zone = np.mgrid[cen[0]-fred_z[0]//2:cen[0]+fred_z[0]//2,cen[1]-fred_z[1]//2:cen[1]+fred_z[1]//2]
 		fred_zone = fred_zone.reshape((2,fred_zone.shape[1]*fred_zone.shape[2])).astype(int)
 		inv_fred_zone = np.array([2*cen[0] - fred_zone[0], 2*cen[1] - fred_zone[1]], dtype=int)
 		if mask is not None:
@@ -162,7 +162,7 @@ def inten_profile_vfast(dataset, mask, *exp_param):
 
 	qinfo = spi_q.cal_q(exp_param[0], exp_param[1], exp_param[2]*4, exp_param[3]/4.0)
 	saxs = cal_saxs(dataset)
-	center = friedel_search(saxs, [saxs.shape[0]/2, saxs.shape[1]/2], mask)
+	center = friedel_search(saxs, [saxs.shape[0]//2, saxs.shape[1]//2], mask)
 	newsaxs = newpat = ndint.zoom(saxs, 4)
 	if mask is not None:
 		newmask = np.round(ndint.zoom(mask, 4)).astype(int)
@@ -219,7 +219,7 @@ def particle_size(saxs, estimated_center, exparam=None, high_filter_cut=0.3, pow
 	from scipy.signal import argrelextrema
 	# high pass filter
 	csaxs, cmask = centering(saxs, estimated_center, mask)
-	center = np.array(csaxs.shape)/2
+	center = (np.array(csaxs.shape)-1)/2.0
 	Iq = radp.radial_profile(csaxs, center, cmask)[:,1]
 	cut = Iq.max()*high_filter_cut
 	width = np.where(Iq>cut)[0][-1]
@@ -270,12 +270,12 @@ def particle_size_sp(dataset, exparam, fitarea, badsearchr, method, mask=None, c
 	pixr = exparam[2]
 	D = np.zeros(len(dataset))
 	size = np.array(dataset.shape[1:], dtype=int)
-	qinfo = 2*np.pi*spi_q.cal_q(detd, lamda, np.min(size/2), pixr)
+	qinfo = 2*np.pi*spi_q.cal_q(detd, lamda, np.min(size//2), pixr)
 
 	for i,d in enumerate(dataset):
 		bad = 0
 		if center is None:
-			thiscenter = friedel_search(d, size/2, mask, 10, np.min([50, np.min(size/2)]))
+			thiscenter = friedel_search(d, size//2, mask, 10, np.min([50, np.min(size//2)]))
 		else:
 			thiscenter = center
 		Iq = radp.radial_profile(d, thiscenter, mask)[nr:nR,1]

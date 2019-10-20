@@ -1,5 +1,6 @@
 import numpy as np
 from ..image import quat
+from ..analyse import rotate
 import numexpr as ne
 from scipy.linalg import get_blas_funcs
 import sys
@@ -7,21 +8,25 @@ import sys
 
 def help(module):
 	if module == "get_slice":
-		print("Generate slices from a 3D model according to given quaternions (orientations)")
+		print("Generate slices from a 3D model according to given rotations")
 		print("    -> Input : model ( the model, a 3D numpy array )")
-		print("               quaternions ( a set of quaternions, np.array([[w,qx,qy,qz],...]) ) ")
+		print("               rotations ( a list of quaternions or euler angles, [[w,qx,qy,qz],[alpha,beta,gamma]...] ) ")
 		print("               det_size ( the size of generated patterns (in pixels), [Npx, Npy] )")
 		print("     *option : det_center ( the center of generated patterns (in pixels), default=None and the geometry center is used )")
 		print("     *option : mask ( pattern mask , 2d numpy array where 1 means masked area and 0 means useful area, default is None )")
-		print("    -> Output: slices, shape=(Nq, Npx, Npy) , Nq is the number of quaternions")
+		print("     *option : slice_coor_ori ( well-mapped 3D coordinates for pixels in detector without rotation, shape=(3,N), N=det_size[0]*det_size[1], default is None )")
+		print("     *option : euler_order ( rotation order if you are using euler angles, default is 'zxz' )")
+		print("    -> Output: slices, shape=(Nq, Npx, Npy) , Nq is the number of rotations")
 	elif module == "merge_slice":
-		print("Merge sereval slices into a 3D model according to given quaternions (orientations)")
+		print("Merge sereval slices into a 3D model according to given rotations")
 		print("    -> Input : model ( the model, a 3D numpy array )")
-		print("               quaternions ( a set of quaternions, np.array([[w,qx,qy,qz],...]) ) ")
+		print("               rotations ( a list of quaternions or euler angles, [[w,qx,qy,qz],[alpha,beta,gamma]...] ) ")
 		print("               slices ( slices to merge into model, numpy array, shape=(N,Npx,Npy) )")
 		print("     *option : weights ( inital interpolation weights for every pixel of input model, shape=model.shape, default is None and weights=ones is used )")
 		print("     *option : det_center ( the center of generated patterns (in pixels), default=None and the geometry center is used )")
 		print("     *option : mask ( pattern mask , 2d numpy array where 1 means masked area and 0 means useful area, default is None )")
+		print("     *option : slice_coor_ori ( well mapped 3D coordinates for pixels in detector without rotation, shape=(3,N), N=det_size[0]*det_size[1], default is None )")
+		print("     *option : euler_order ( rotation order if you are using euler angles, default is 'zxz' )")
 		print("    -> Output: None, model is modified directly")
 	elif module == "poisson_likelihood":
 		print("Calculate poisson likelihood between a model slice and exp pattern")
@@ -44,37 +49,59 @@ def help(module):
 
 
 
-def get_slice(model, quaternions, det_size, det_center=None, mask=None):
+def get_slice(model, rotations, det_size, det_center=None, \
+					mask=None, slice_coor_ori=None, euler_order="zxz"):
 	'''
 	get one slice from a 3D matrix (model), whose orientation depends on a quaternion
-	model : 3d numpy array
-	quaternions : 1d/2d array, [[w, qx, qy, qz],...], shape=(Nq, 4)
-	det_size : [size_x, size_y]
-	det_center : [cx, cy] or None, start from 0
+	model        : 3d numpy array
+	rotations    : 2d list, [[w, qx, qy, qz], [alpha, beta, gamma], ...], length = Nq
+	               [NOTICE] for euler angle, the default order is intrinsic 'zxz'
+	det_size     : [size_x, size_y]
+	det_center   : [cx, cy] or None, start from 0
+	mask         : np.array, shape=(Nx,Ny), 1 means masked pixel
+	slice_coor_ori : well-mapped 3D coordinates for pixels in detector with no rotation, shape=(3,N), N=det_size[0]*det_size[1]
+	euler_order  : rotation order if you are using euler angles, default="zxz" 
 	'''
 
-	if len(np.array(quaternions).shape) == 1:
-		quaternions = [quaternions]
+	if len(rotations) == 0:
+		raise RuntimeError("rotations should not be empty !")
+	if slice_coor_ori is not None and slice_coor_ori.shape != (3, det_size[0]*det_size[1]):
+		raise RuntimeError("input 'slice_coor_ori' shape is invalid !")
+	try:
+		rotations[0][0]
+		squeeze_label = 0
+	except:
+		rotations = [rotations]
+		squeeze_label = 1
 
-	# make slice
-	this_slice = np.zeros( (len(quaternions),det_size[0]*det_size[1]), dtype=np.float32 )
-	slice_x, slice_y = np.mgrid[0:det_size[0], 0:det_size[1]]
-	slice_z = np.zeros(det_size)
 	if det_center is None:
 		det_center = (np.array(det_size)-1)/2.0
-	slice_x = slice_x - det_center[0]
-	slice_y = slice_y - det_center[1]
-	slice_coor_ori = np.vstack([slice_x.flatten(), slice_y.flatten(), slice_z.flatten()])   # shape=(3,N),  N=det_size[0]*det_size[1]
 	# make mask
 	if mask is not None:
 		this_mask = mask.flatten()
 		masked_index = np.where(this_mask == 0)[0]
-	maxR = np.linalg.norm( [ max(det_size[0]-det_center[0]-1, det_center[0]), max(det_size[1]-det_center[1]-1, det_center[1]) ] )
-	del slice_x, slice_y, slice_z
+	# make slice
+	if slice_coor_ori is None:
+		slice_x, slice_y = np.mgrid[0:det_size[0], 0:det_size[1]]
+		slice_z = np.zeros(det_size)
+		slice_x = slice_x - det_center[0]
+		slice_y = slice_y - det_center[1]
+		slice_coor_ori = np.vstack([slice_x.flatten(), slice_y.flatten(), slice_z.flatten()])   # shape=(3,N),  N=det_size[0]*det_size[1]		
+		del slice_x, slice_y, slice_z
+	this_slice = np.zeros( (len(rotations), det_size[0]*det_size[1]), dtype=np.float32 )
+	maxR = np.max(np.linalg.norm(slice_coor_ori, axis=0))
 
-	for ind, quaternion in enumerate(quaternions):
+	# start slicing
+	for ind, rotation in enumerate(rotations):
+
 		# make rotation
-		rot_mat = np.array(quat.quat2rot(quaternion))   # dtype is np.matrix, shape=(3,3)
+		if len(rotation) == 4:
+			rot_mat = np.array(quat.quat2rot(rotation))   # shape=(3,3)
+		elif len(rotation) == 3:
+			rot_mat = np.array(rotate.eul2rotm(rotation, euler_order))  # shape=(3,3)
+		else:
+			print("get_slice warning: input rotations (%dth) is invalid, skip." % ind)
+			continue
 		gemm = get_blas_funcs("gemm",[rot_mat, slice_coor_ori])
 		slice_coor = gemm(1, rot_mat, slice_coor_ori)
 		slice_coor += np.reshape((np.array(model.shape)-1)/2.0, (3,1))  # np.array, shape=(3,N)
@@ -149,35 +176,42 @@ def get_slice(model, quaternions, det_size, det_center=None, mask=None):
 		else:
 			this_slice[ind] = temp_slice / weights
 
-	if np.array(quaternions).shape[0] == 1:
+	if squeeze_label == 1:
 		return this_slice.reshape((ind+1, det_size[0], det_size[1]))[0]
 	else:
 		return this_slice.reshape((ind+1, det_size[0], det_size[1]))
 
 
 
-def merge_slice(model, quaternions, slices, weights=None, det_center=None, mask=None):
+def merge_slice(model, rotations, slices, weights=None, det_center=None, \
+					mask=None, slice_coor_ori=None, euler_order="zxz"):
 	'''
-	merge slices into a given model, the orientations depend on quaternions
+	merge slices into a given model, the orientations depend on quaternions/euler angles
 	model : 3d numpy array, original model
-	quaternions : array, [[w, qx, qy, qz],...]
-	this_slice : 3d numpy array, some patterns
+	rotations : 2d list, [[w, qx, qy, qz], [alpha, beta, gamma], ...], length = Nq
+	            [NOTICE] for euler angle, the default order is intrinsic 'zxz'
+	slices : 3d numpy array, some patterns
 	weights : same shape with model, initial interpolation weights of all voxels in the model
 	det_center : [cx, cy] or None
+	mask : np.array, shape=(Nx,Ny), 1 means masked pixel
+	slice_coor_ori : well-mapped 3D coordinates for pixels in detector with no rotation, shape=(3,N), N=slices.shape[1]*slices.shape[2]
+	euler_order  : rotation order if you are using euler angles, default="zxz" 
 	[NOTICE] "model" is modified directly, no return
 	'''
 
-	if len(np.array(quaternions).shape) == 1:
-		quaternions = [quaternions]
+	if len(rotations) == 0:
+		raise RuntimeError("rotations should not be empty !")
+	try:
+		rotations[0][0]
+	except:
+		rotations = [rotations]
 	if len(np.array(slices).shape) == 2:
 		slices = np.array([slices])
 
-	# make slice
-	slices_flat = slices.reshape((slices.shape[0], slices.shape[1]*slices.shape[2]))
-	det_size = slices.shape[1:]
-	slice_x, slice_y = np.mgrid[0:det_size[0], 0:det_size[1]]
-	slice_z = np.zeros(det_size)
-
+	det_size = (slices.shape[1], slices.shape[2])
+	if slice_coor_ori is not None and slice_coor_ori.shape != (3, det_size[0]*det_size[1]):
+		raise RuntimeError("input 'slice_coor_ori' shape is invalid !")
+	
 	if det_center is None:
 		det_center = (np.array(det_size)-1)/2.0
 	if weights is None:
@@ -187,15 +221,29 @@ def merge_slice(model, quaternions, slices, weights=None, det_center=None, mask=
 		this_mask = mask.flatten()
 		masked_index = np.where(this_mask == 0)[0]
 
-	slice_x = slice_x - det_center[0]
-	slice_y = slice_y - det_center[1]
-	slice_coor_ori = np.vstack([slice_x.flatten(), slice_y.flatten(), slice_z.flatten()])   # shape=(3,N)
-	maxR = np.linalg.norm( [ max(det_size[0]-det_center[0]-1, det_center[0]), max(det_size[1]-det_center[1]-1, det_center[1]) ] )
-	del slice_x, slice_y, slice_z
+	# make slice
+	if slice_coor_ori is None:
+		det_size = slices.shape[1:]
+		slice_x, slice_y = np.mgrid[0:det_size[0], 0:det_size[1]]
+		slice_z = np.zeros(det_size)
+		slice_x = slice_x - det_center[0]
+		slice_y = slice_y - det_center[1]
+		slice_coor_ori = np.vstack([slice_x.flatten(), slice_y.flatten(), slice_z.flatten()])   # shape=(3,N)
+		del slice_x, slice_y, slice_z
+	maxR = np.max(np.linalg.norm(slice_coor_ori, axis=0))
+	slices_flat = slices.reshape((slices.shape[0], slices.shape[1]*slices.shape[2]))
+	
+	# start merging
+	for ind, rotation in enumerate(rotations):
 
-	for ind, quaternion in enumerate(quaternions):
 		# make rotation
-		rot_mat = np.array(quat.quat2rot(quaternion))   # dtype is np.matrix, shape=(3,3)
+		if len(rotation) == 4:
+			rot_mat = np.array(quat.quat2rot(rotation))   # shape=(3,3)
+		elif len(rotation) == 3:
+			rot_mat = np.array(rotate.eul2rotm(rotation, euler_order))  # shape=(3,3)
+		else:
+			print("get_slice warning: input rotations (%dth) is invalid, skip." % ind)
+			continue
 		gemm = get_blas_funcs("gemm",[rot_mat, slice_coor_ori])
 		slice_coor = gemm(1, rot_mat, slice_coor_ori)
 		slice_coor += np.reshape((np.array(model.shape)-1)/2.0, (3,1))  # np.array, shape=(3,N)

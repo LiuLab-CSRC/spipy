@@ -1,6 +1,26 @@
 #! /bin/bash
+
+function check_answer(){
+	flag=0
+	while [ $flag -eq 0 ]
+	do
+		read answer
+		if [ x$answer = x"n" ]
+		then
+			flag=1
+			return 0
+		elif [ x$answer = x"y" ]
+		then
+			flag=1
+			return 1
+		else
+			echo "??? Please give 'y' or 'n'. Use 'Ctrl-C' to exit."
+		fi
+	done
+}
+
 root_folder=`pwd`/spipy
-#set -e
+env_name="spipy-v3"
 
 # get opts
 SKIP_COMPILE=0
@@ -22,16 +42,27 @@ while getopts ":xh" opt; do
 done
 
 # check whether there is anaconda installed
-Ana_path=`which python`
+curr_env_path=`which python`
+curr_env_path=${curr_env_path%/*bin/python*}
 a='anaconda'
 b='miniconda'
-if [[ $Ana_path =~ $a ]] || [[ $Ana_path =~ $b ]]
+if [[ $curr_env_path =~ $a ]] || [[ $curr_env_path =~ $b ]]
 then
 	echo "[Info] Root folder is $root_folder"
 else
-	echo "[Error] Use anaconda2/miniconda2 please. Exit."
+	echo "[Error] Use anaconda/miniconda and switch to base environment, please. Exit."
 	exit 1
 fi
+
+# check whether anaconda is switched to base env
+a='envs'
+if [[ $curr_env_path =~ $a ]]
+then
+	echo "[Error] Please switch conda to base environment !"
+	exit 0
+fi
+
+# check python version
 py_version=`conda list | grep "^python "`
 a='3.*.*'
 if [[ $py_version =~ $a ]]
@@ -44,7 +75,6 @@ fi
 
 
 # decide your system
-echo "==> Authorizing operating system"
 sys=`uname`
 
 if [ $sys != "Linux" ] && [ $sys != "Darwin" ]
@@ -55,16 +85,17 @@ fi
 
 if [ $sys = "Darwin" ] && [ $SKIP_COMPILE -ne 1 ]
 then
-	echo "[Warning] Since now I didn't add any support on compiling EMC module in MacOS, '-x' option will be added automatically. Continue ? (y/n)"
-	read answer
-	if [ answer = "n" ]; then
+	echo "[Warning] Since now I didn't add any support on compiling EMC module on MacOS, '-x' option will be added automatically. Continue ? (y/n)"
+	check_answer
+	if [ $? -eq 0 ]; then
 		exit 1
 	fi
 	SKIP_COMPILE=1
 fi
 
+echo "==> Operating system authorized"
 if [ $SKIP_COMPILE -eq 1 ]; then
-	echo "[Info] Skip compiling merge.emc and simulate.sim module."
+	echo "[Info] Skip compiling merge.emc module."
 fi
 
 
@@ -75,39 +106,31 @@ if [ $SKIP_COMPILE -eq 0 ]; then
 	if [ $sys = "Darwin" ]
 	then
 		nowgcc=`which gcc`
-		echo "[Warning] I need openmp and MPI support. Do you want to use current gcc? : $nowgcc [y/n]"
-		flag=0
-		while [ $flag = 0 ]
-		do
-			read answer
-			if [ $answer = "n" ]
-			then
-				echo "Give me your specific gcc path : "
-				read mygcc
-				flag=1
-			elif [ $answer = "y" ]
-			then
-				mygcc=gcc
-				flag=1
-			else
-				echo "[Warning] Please give 'y' or 'n'."
-			fi
-		done
+		echo "[Warning] I need openmp/MPI/GSL support. Do you want to use current gcc? : $nowgcc [y/n]"
+		check_answer
+		if [ $? -eq 1 ]
+		then
+			mygcc=gcc
+		else
+			echo "Give me your specific gcc path : "
+			read mygcc
+		fi
 	fi
 	# reject conda mpi
 	if [ $sys = "Linux" ]
 	then
 		nowmpicc=`which mpicc`
 		nowmpirun=`which mpirun`
-		if [ $nowmpicc = "${Ana_path%/bin/python*}/bin/mpicc" ] || [ $nowmpirun = "${Ana_path%/bin/python*}/bin/mpirun" ]
+		if [ -z "$nowmpicc" ]; then echo "[Error] There is no mpi detected, exit";exit 0;fi
+		if [ $nowmpicc = "${curr_env_path}/bin/mpicc" ] || [ $nowmpirun = "${curr_env_path}/bin/mpirun" ]
 		then
-			echo "[Warning] The default mpicc is $nowmpicc"
-			echo "   Since it is from conda env, problems may occur while using it."
-			echo "   Please give me another mpicc absolute path (type 'n' to exit) : "
+			echo "[Warning] The current mpicc is $nowmpicc"
+			echo "   Make sure whether it contains GSL and openMP libraries."
+			echo "   Or give me another mpicc absolute path (type 'n' to to use current one) : "
 			read mympicc
 			if [ $mympicc = "n" ]
 			then
-				exit 1
+				mympicc=$nowmpicc
 			fi
 		else
 			mympicc=$nowmpicc
@@ -131,6 +154,9 @@ g++ gen_quat.cpp -o gen_quat -O1
 if [ $? -ne 0 ];then echo $?; exit 1;fi
 chmod u+x gen_quat
 
+cd $root_folder/phase
+chmod u+x ./template_2d/new_project ./template_3d/new_project
+
 if [ $SKIP_COMPILE -eq 0 ]; then
 
 	echo "==> Compile merge/template_emc/src"
@@ -148,24 +174,7 @@ if [ $SKIP_COMPILE -eq 0 ]; then
 		chmod u+x emc_MAC
 	fi
 
-
-	echo "==> Compile simulate/src"
-	cd $root_folder/simulate/src
-	chmod u+x compile.sh ../code/make_densities.py ../code/make_detector.py ../code/make_intensities.py
-	if [ $sys = "Linux" ]
-	then
-		$mympicc -fopenmp make_data.c -o make_data_LINUX -I ./ -lgsl -lgslcblas -lm -O3
-		if [ $? -ne 0 ];then echo $?; exit 1;fi
-		chmod u+x make_data_LINUX
-	elif [ $sys = "Darwin" ]
-	then
-		$mygcc -fopenmp make_data.c -o make_data_MAC -I ./ -lgsl -lgslcblas -lm -O3
-		if [ $? -ne 0 ];then echo $?; exit 1;fi
-		chmod u+x make_data_MAC
-	fi
-
 fi
-
 
 if [ $? -ne 0 ];then echo "Command failed. Exit"; exit 1;fi
 
@@ -181,79 +190,28 @@ tar -xzf phase/phase.tgz -C ./phase/
 tar -xzf simulate/simulate.tgz -C ./simulate/
 
 
-# install python packages
-echo "==> Checking python packages"
-echo "[Warning] The coming procedure may install packages into your conda env. Continue ? (y/n)"
-read answer
-if [ $answer = "n" ]
+# check conda env
+echo "==> Checking conda environment"
+
+all_envs=`conda env list | grep ${env_name}`
+if [ -z "$all_envs" ]
 then
-	exit 1
+	echo "[Warning] The coming procedure will create a new conda environment named '${env_name}'. Continue ? (y/n)"
+	check_answer
+	if [ $? -eq 0 ]
+	then
+		exit 1
+	fi
+	conda env create -f ${root_folder}/../.${env_name}.yaml -n ${env_name}
+else
+	echo "[Info] The target conda environment '${env_name}' already exists, we will use it."
+	conda env update -f ${root_folder}/../.${env_name}.yaml -n ${env_name}
 fi
 
-echo "... configparser"
-tmp=`conda list | grep "configparser"`
-if [ -z "$tmp" ];then conda install configparser;fi
-if [ $? -ne 0 ];then echo $?; exit 1;fi
-
-echo "... numpy"
-tmp=`conda list | grep "numpy"`
-if [ -z "$tmp" ];then conda install numpy=1.16.2;fi
-if [ $? -ne 0 ];then echo $?; exit 1;fi
-
-echo "... scipy"
-tmp=`conda list | grep "scipy"`
-if [ -z "$tmp" ];then conda install scipy;fi
-if [ $? -ne 0 ];then echo $?; exit 1;fi
-
-echo "... scikit-learn"
-tmp=`conda list | grep "scikit-learn"`
-if [ -z "$tmp" ];then conda install scikit-learn;fi
-if [ $? -ne 0 ];then echo $?; exit 1;fi
-
-echo "... matplotlib"
-tmp=`conda list | grep "matplotlib"`
-if [ -z "$tmp" ];then conda install matplotlib;fi
-if [ $? -ne 0 ];then echo $?; exit 1;fi
-
-echo "... h5py"
-tmp=`conda list | grep "h5py"`
-if [ -z "$tmp" ];then conda install h5py;fi
-if [ $? -ne 0 ];then echo $?; exit 1;fi
-
-echo "... numexpr"
-tmp=`conda list | grep "numexpr"`
-if [ -z "$tmp" ];then conda install numexpr;fi
-if [ $? -ne 0 ];then echo $?; exit 1;fi
-
-echo "... psutil"
-tmp=`conda list | grep "psutil"`
-if [ -z "$tmp" ];then conda install psutil;fi
-if [ $? -ne 0 ];then echo $?; exit 1;fi
-
-echo "... mrcfile"
-tmp=`conda list | grep "mrcfile"`
-if [ -z "$tmp" ];then pip install mrcfile;fi
-if [ $? -ne 0 ];then echo $?; exit 1;fi
-
-echo "... openmpi"
-tmp=`conda list | grep "openmpi"`
-if [ -z "$tmp" ];then conda install -c conda-forge openmpi;fi
-if [ $? -ne 0 ];then echo $?; exit 1;fi
-
-echo "... mpi4py"
-tmp=`conda list | grep "mpi4py"`
-if [ -z "$tmp" ];then conda install -c conda-forge mpi4py;fi
-if [ $? -ne 0 ];then echo $?; exit 1;fi
-
-
-echo "==> others"
-cd $root_folder/phase
-chmod u+x ./template_2d/new_project ./template_3d/new_project
-cd $root_folder/image/qlist_dir
-chmod u+x ./gen_quat
-
+# install to conda env
 # make soft link
-python_path=`find ${Ana_path%/bin/python*}/lib -name "python3.*" -maxdepth 1`
+echo "==> Install spipy to conda env"
+python_path=`find ${curr_env_path}/envs/${env_name}/lib -name "python3.*" -maxdepth 1`
 if [ ! -d ${python_path} ]
 then
 	echo "I can't find an unique python in your anaconda environment."
@@ -266,24 +224,17 @@ then
 	ln -fs $root_folder ${python_path}/site-packages/spipy
 else
 	echo "[Warning] spipy is already in python3.*/site-packages. Over-write it? [y/n]"
-	flag=0
-	while [ $flag = 0 ]
-	do
-		read overwrite
-		if [ $overwrite = "y" ]
-		then
-			rm ${python_path}/site-packages/spipy
-			ln -fs $root_folder ${python_path}/site-packages/spipy
-			flag=1
-		elif [ $overwrite = "n" ]
-		then
-			echo "Skip."
-			flag=1
-		else
-			echo "[Warning] Please give 'y' or 'n'."
-		fi
-	done
+	check_answer
+	if [ $? -eq 1 ]
+	then
+		rm ${python_path}/site-packages/spipy
+		ln -fs $root_folder ${python_path}/site-packages/spipy
+	else
+		echo "Skip."
+	fi
 fi
+
+if [ $? -ne 0 ];then echo "Command failed. Exit"; exit 1;fi
 
 # write info.py :
 INFO=$root_folder/info.py
