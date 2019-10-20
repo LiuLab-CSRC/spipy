@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import json
 from spipy.analyse import rotate
 from scipy.linalg import get_blas_funcs
 import numexpr as ne
@@ -173,11 +174,12 @@ class simulation():
 		abs_index = np.sort(list(set(atom_index))).astype(int)
 		abs_r = np.sort(list(set(pix_r))).astype(int)
 		q = np.sin(np.arctan(abs_r*det_ps/det_d)/2)/det_lambda
-		scatter_file = os.path.join(os.path.dirname(__file__), 'aux/scattering.npy')
-		scatterf = np.load(scatter_file)[()]
+		scatter_file = os.path.join(os.path.dirname(__file__), 'aux/scattering.json')
+		with open(scatter_file, 'r') as fp:
+			scatterf = json.load(fp)
 		abc = np.zeros((len(abs_index), 9))
 		for ind,k in enumerate(abs_index):
-			abc[ind] = scatterf[k]
+			abc[ind] = scatterf[str(k)]
 		gau_1 = gaussian(abc[:,0],abc[:,1],abc[:,8],q)
 		gau_2 = gaussian(abc[:,2],abc[:,3],abc[:,8],q)
 		gau_3 = gaussian(abc[:,4],abc[:,5],abc[:,8],q)
