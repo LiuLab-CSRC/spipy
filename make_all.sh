@@ -202,10 +202,10 @@ then
 	then
 		exit 1
 	fi
-	conda env create -f ${root_folder}/../.${env_name}.yaml -n ${env_name}
+	conda env create -f ${root_folder}/../environment.yaml -n ${env_name}
 else
 	echo "[Info] The target conda environment '${env_name}' already exists, we will use it."
-	conda env update -f ${root_folder}/../.${env_name}.yaml -n ${env_name}
+	conda env update -f ${root_folder}/../environment.yaml -n ${env_name}
 fi
 
 # install to conda env
