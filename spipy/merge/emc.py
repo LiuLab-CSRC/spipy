@@ -193,7 +193,7 @@ def run(num_proc, num_thread, iters, nohup=False, resume=False, cluster=True):
 		try:
 			mpirun = info.EMC_MPI
 		except:
-			mpirun = "mpirun"
+			mpirun = "mpiexec"
 
 		print("\n Make directories, check submit_job.sh for details.\n")
 		cmd = mpirun + ' -np ' + str(num_proc) + ' ./emc -c config.ini' + ' -t ' +  str(num_thread)

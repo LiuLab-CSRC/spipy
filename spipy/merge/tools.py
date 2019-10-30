@@ -363,8 +363,8 @@ def get_quaternion(Num_level):
 	Input : Num_level, a integer controlling the number of quaternions
 			The number of output quaternions is 2*Num_level^3
 	'''
-	from spipy.analyse import orientation
-	from spipy.image import quat
+	from ..analyse import orientation
+	from ..image import quat
 
 	assert Num_level>0, "Num_level should be >0"
 

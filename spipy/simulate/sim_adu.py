@@ -28,7 +28,7 @@ def help(module):
 
 class simulation():
 
-    sim_methods = ["atomic", "fft"]
+    sim_methods = ["atomic", "fft"]  # you can change name, but this first one always means atom scattering simulation
     config_param = {'detd' : 200.0, 'lambda' : 2.5, \
                     'detsize' : 128, 'pixsize' : 0.3, \
                     'stoprad' : 0, 'polarization' : 'x', \
@@ -409,7 +409,7 @@ class simulation():
     def run_simulation(self, verbose=True):                                                       
         if self.order is None or self.euler is None or self.oversampl is None:
             raise RuntimeError('Please configure and generate euler angles first!')
-        from spipy.image import radp
+        from ..image import radp
 
         num_pat = self.config_param['num_data']
         det_l = self.config_param['detsize']

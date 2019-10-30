@@ -212,8 +212,8 @@ class Frameviewer():
         self.master.quit()
 
 if __name__ == '__main__':
-    import spipy
-    sys.path.append(os.path.join(os.path.dirname(spipy.merge.emc.__file__), 'template_emc/'))
+    from spipy import merge
+    sys.path.append(os.path.join(os.path.dirname(merge.emc.__file__), 'template_emc/'))
     import configparser
     from py_src import py_utils
     from py_src import read_config

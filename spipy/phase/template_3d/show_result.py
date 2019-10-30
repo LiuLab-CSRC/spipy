@@ -1,9 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import h5py
-from spipy.image import radp
-from spipy.analyse import q
 import sys
+
+from spipy.image import radp
+from spipy.analyse import q as qspace
 
 if __name__=="__main__":
 	fi = sys.argv[1]
@@ -51,7 +52,7 @@ if __name__=="__main__":
 	# q = np.load('resolution.npy')
 	qlen = int(np.floor(len(prtf_rav)/np.sqrt(3)))
 	if exparam is not None:
-		qinfo = q.cal_q(float(exparam[0]),float(exparam[1]),float(exparam[2]),float(exparam[3]))
+		qinfo = qspace.cal_q(float(exparam[0]),float(exparam[1]),float(exparam[2]),float(exparam[3]))
 	else:
 		qinfo = np.arange(qlen)
 	plt.plot(qinfo[:qlen],prtf_rav[:qlen,1],'-k')

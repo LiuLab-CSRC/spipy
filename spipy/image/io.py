@@ -63,7 +63,7 @@ def readccp4(file_path):
 
 def _readpdb(pdb_file, lamda=None):
 	# return array([[index,x,y,z,obs_electron,mass],...]) , shape=(N,6)
-	from spipy.simulate.code import process_pdb
+	from ..simulate.code import process_pdb
 	from collections import OrderedDict
 	atom_table_path = os.path.join(os.path.dirname(os.path.dirname(__file__)),'simulate/aux/henke_table')
 
@@ -85,7 +85,7 @@ def _readpdb(pdb_file, lamda=None):
 
 def readpdb_full(pdb_file):
 	# return {res-index:[res-name,{atom-name:[atom-index,atom-mass,x,y,z,occupancy,b-factor], ...}], ...}
-	from spipy.simulate.code import process_pdb
+	from ..simulate.code import process_pdb
 	atom_table_path = os.path.join(os.path.dirname(os.path.dirname(__file__)),'simulate/aux/henke_table')
 
 	with open(pdb_file, 'r') as fp:
@@ -117,7 +117,7 @@ def readpdb_full(pdb_file):
 
 
 def pdb2density(pdb_file, resolution, lamda=None):
-	from spipy.simulate.code import process_pdb
+	from ..simulate.code import process_pdb
 	all_atoms = _readpdb(pdb_file, lamda)    # shape=(N,6)
 	# process density
 	density = process_pdb.atoms_to_density_map(all_atoms, resolution)

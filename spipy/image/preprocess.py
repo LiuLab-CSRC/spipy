@@ -103,7 +103,7 @@ def _fix_artifact_auto_single_process(data, label, center, I_prime, mask):
 
 
 def fix_artifact_auto(dataset, estimated_center, njobs=1, mask=None, vol_of_bins=100):
-	from spipy.image import classify
+	from . import classify
 	njobs = abs(int(njobs))
 	dataset[np.isnan(dataset)] = 0
 	dataset[np.isinf(dataset)] = 0

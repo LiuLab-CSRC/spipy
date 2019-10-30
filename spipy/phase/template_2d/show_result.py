@@ -1,9 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import h5py
-from spipy.image import radp
-from spipy.analyse import q
 import sys
+
+from spipy.image import radp
+from spipy.analyse import q as qspace
 
 if __name__=="__main__":
 	fi = sys.argv[1]
@@ -14,7 +15,7 @@ if __name__=="__main__":
 	f = h5py.File(fi,'r')
 	prtf = np.abs(np.fft.fftshift(f['PRTF'][()]))
 	size = prtf.shape
-	prtf_rav = radp.radial_profile(prtf,[size[0]/2,size[1]/2])
+	prtf_rav = radp.radial_profile(prtf,[size[0]//2,size[1]//2])
 	sr = np.abs(np.fft.fftshift(f['sample retrieved'][()]))
 	dr = np.abs(np.fft.fftshift(np.fft.fft2(np.fft.ifftshift(sr))))**2
 	d = np.abs(np.fft.fftshift(f['data'][()]))
@@ -51,7 +52,7 @@ if __name__=="__main__":
 	# q = np.load('resolution.npy')
 	qlen = int(np.floor(len(prtf_rav)/np.sqrt(2)))
 	if exparam is not None:
-		qinfo = q.cal_q(float(exparam[0]),float(exparam[1]),float(exparam[2]),float(exparam[3]))
+		qinfo = qspace.cal_q(float(exparam[0]),float(exparam[1]),float(exparam[2]),float(exparam[3]))
 	else:
 		qinfo = np.arange(qlen)
 	plt.plot(qinfo[:qlen],prtf_rav[:qlen,1],'-k')

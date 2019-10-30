@@ -20,7 +20,7 @@ def help(module):
 		print("[Notice] Your original intensity file should be 3D matrix '.npy' or '.mat', or Dragonfly output '.bin'")
 		print("[Notice] 'path' must be absolute path !")
 		return
-	elif module=="config":
+	elif module=="config_project":
 		print("This function is used to edit configure file")
 		print("    -> Input (dict, parameters yout want to modified.)")
 		print("params format : ")
@@ -31,7 +31,7 @@ def help(module):
 					}")
 		print("You can look into 'config.ini' for detail information")
 		return
-	elif module=="run":
+	elif module=="run_project":
 		print("Call this function to start phasing")
 		print("    -> *option: num_proc (int, how many processes to run in parallel, default=1)")
 		print("       *option: nohup (bool, whether run it in the background, default=False)")
@@ -121,6 +121,8 @@ def new_project(data_path, mask_path=None, path=None, name=None):
 
 def config_project(params):
 	global __workpath
+	from .template_3d import make_input
+
 	if not os.path.exists(os.path.join(__workpath,'config.ini')):
 		raise ValueError("I can't find your configure file, please run phase3d.new_project(...) first !")
 
@@ -131,30 +133,32 @@ def config_project(params):
 		config.set(section, par, str(params[k]))
 	with open(os.path.join(__workpath,'config.ini'), 'w') as f:
 		config.write(f)
+
+	# make input
+	make_input.make_input(os.path.join(__workpath,'config.ini'))
 	print('\n Configure finished.')
+
 
 def run_project(num_proc=1, nohup=False, cluster=True):
 	global __workpath
-	if not os.path.exists(os.path.join(__workpath,'config.ini')):
+
+	if not os.path.exists(os.path.join(__workpath,'input.h5')):
 		raise ValueError("Please call phase3d.new_project(...) and phase3d.config(...) first ! Exit")
 
 	code_path = __file__.split('/phase3d.py')[0] + '/template_3d'
-	if nohup == True:
-		cmd = "python " + os.path.join(code_path,'make_input.py') + ' '+ os.path.join(__workpath,'config.ini') + ' >' + os.path.join(__workpath,'make_input.log')
-	else:
-		cmd = "python " + os.path.join(code_path,'make_input.py') + ' '+ os.path.join(__workpath,'config.ini')
-	subprocess.check_call(cmd, shell=True)
 
 	if num_proc >= 1:
 		# python path
 		pythony = subprocess.check_output('which python', shell=True).decode().strip("\n")
 		# mpirun path
 		mpirun = pythony.split('bin')[0]
-		mpirun = os.path.join(mpirun, 'bin/mpirun')
+		mpirun = os.path.join(mpirun, 'bin/mpiexec')
 		if nohup == True:
-			cmd = mpirun + " -n "+str(num_proc)+" %s " % pythony + os.path.join(code_path, 'phase.py') + ' ' + os.path.join(__workpath, 'input.h5') + ' &>' + os.path.join(__workpath, 'phase.log') + '&'
+			cmd = mpirun + " -np "+str(num_proc)+" --mca btl self,tcp --oversubscribe %s " % pythony \
+				+ os.path.join(code_path, 'phase.py') + ' ' + os.path.join(__workpath, 'input.h5') + ' &>' + os.path.join(__workpath, 'phase.log') + '&'
 		else:
-			cmd = mpirun + " -n "+str(num_proc)+" %s " % pythony + os.path.join(code_path, 'phase.py') + ' ' + os.path.join(__workpath, 'input.h5')
+			cmd = mpirun + " -np "+str(num_proc)+" --mca btl self,tcp --oversubscribe %s " % pythony \
+				+ os.path.join(code_path, 'phase.py') + ' ' + os.path.join(__workpath, 'input.h5')
 		if cluster:
 			print("\n Dry run on cluster, check submit_job.sh for details.\n")
 			submitfile = open(os.path.join(__workpath, "submit_job.sh"), 'w')

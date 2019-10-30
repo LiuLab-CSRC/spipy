@@ -6,7 +6,6 @@ import subprocess
 
 __workpath = None
 
-
 def help(module):
 	if module=="use_project":
 		print("This function is used to switch to a existing project")
@@ -21,7 +20,7 @@ def help(module):
 		print("         Leave data_mask_path[1] to None if you don't have user mask")
 		print("[Notice] 'path' must be absolute path !")
 		return
-	elif module=="config":
+	elif module=="config_project":
 		print("This function is used to edit configure file")
 		print("    -> Input (dict, parameters yout want to modified.)")
 		print("params format : ")
@@ -32,7 +31,7 @@ def help(module):
 					}")
 		print("You can look into 'config.ini' for detail information")
 		return
-	elif module=="run":
+	elif module=="run_project":
 		print("Call this function to start phasing")
 		print("    -> Input: nohup (bool, whether run it in the background, default=False)")
 		return
@@ -131,6 +130,8 @@ def new_project(data_mask_path, path=None, name=None):
 
 def config_project(params):
 	global __workpath
+	from .template_2d import make_input
+
 	if not os.path.exists(os.path.join(__workpath,'config.ini')):
 		raise ValueError("I can't find your configure file, please run phase2d.new_project(...) first !")
 	
@@ -142,10 +143,8 @@ def config_project(params):
 	with open(os.path.join(__workpath,'config.ini'), 'w') as f:
 		config.write(f)
 
-	code_path = __file__.split('/phase2d.py')[0] + '/template_2d'
-	cmd = "python " + os.path.join(code_path,'make_input.py') + ' '+ os.path.join(__workpath,'config.ini')
-	subprocess.check_call(cmd, shell=True)
-
+	# make input
+	make_input.make_input(os.path.join(__workpath,'config.ini'))
 	print('\n Configure finished.')
 
 
@@ -155,18 +154,18 @@ def run_project(num_proc=1, nohup=False, cluster=False):
 	if not os.path.exists(os.path.join(__workpath,'input.h5')):
 		raise ValueError("Please call phase2d.new_project(...) and phase2d.config(...) first ! Exit")
 
-	code_path = __file__.split('/phase2d.py')[0] + '/template_2d'
+	code_path = os.path.join(os.path.dirname(__file__), 'template_2d')
 
 	if num_proc >= 1:
 		# python path
 		pythony = subprocess.check_output('which python', shell=True).decode().strip("\n")
 		# mpirun path
 		mpirun = pythony.split('bin')[0]
-		mpirun = os.path.join(mpirun, 'bin/mpirun')
+		mpirun = os.path.join(mpirun, 'bin/mpiexec')
 		if nohup == True:
-			cmd = mpirun + " -n "+str(num_proc)+" %s " % pythony + os.path.join(code_path, 'phase.py') + ' ' + os.path.join(__workpath, 'input.h5') + ' &>' + os.path.join(__workpath, 'phase.log') + '&'
+			cmd = mpirun + " -np "+str(num_proc)+" --oversubscribe %s " % pythony + os.path.join(code_path, 'phase.py') + ' ' + os.path.join(__workpath, 'input.h5') + ' &>' + os.path.join(__workpath, 'phase.log') + '&'
 		else:
-			cmd = mpirun + " -n "+str(num_proc)+" %s " % pythony + os.path.join(code_path, 'phase.py') + ' ' + os.path.join(__workpath, 'input.h5')
+			cmd = mpirun + " -np "+str(num_proc)+" --oversubscribe %s " % pythony + os.path.join(code_path, 'phase.py') + ' ' + os.path.join(__workpath, 'input.h5')
 		if cluster:
 			print("\n Dry run on cluster, check submit_job.sh for details.\n")
 			submitfile = open(os.path.join(__workpath, "submit_job.sh"), 'w')

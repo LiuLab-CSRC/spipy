@@ -3,8 +3,8 @@ import sys, os
 import re
 import copy
 
-import phasing2d
-import phasing2d.utils as utils
+from src import era, raar, dm
+from utils import io_utils, merge
 
 from mpi4py import MPI
 
@@ -35,8 +35,8 @@ def out_merge(out, I, good_pix):
     if rank == 0: silent = False
     
     # centre, flip and average the retrievals
-    O, PRTF    = utils.merge_sols(np.array([i['O'] for i in out]), True)
-    support, t = utils.merge_sols(np.array([i['support'] for i in out]).astype(np.float), True)
+    O, PRTF    = merge.merge_sols(np.array([i['O'] for i in out]), True)
+    support, t = merge.merge_sols(np.array([i['support'] for i in out]).astype(np.float), True)
        
     eMod    = np.array([i['eMod'] for i in out])
     eCon    = np.array([i['eCon'] for i in out])
@@ -58,8 +58,8 @@ def out_merge(out, I, good_pix):
         
         eMod       = np.array(eMod).reshape((size*eMod[0].shape[0], eMod[0].shape[1]))
         eCon       = np.array(eCon).reshape((size*eCon[0].shape[0], eCon[0].shape[1]))
-        O, t       = utils.merge.merge_sols(np.array(O))
-        support, t = utils.merge.merge_sols(np.array(support))
+        O, t       = merge.merge_sols(np.array(O))
+        support, t = merge.merge_sols(np.array(support))
         if background is not 0 :
             background = np.mean(np.array(background), axis=0)
         
@@ -68,7 +68,7 @@ def out_merge(out, I, good_pix):
         #PRTF, PRTF_rav = utils.merge.PRTF(O, I, background, good_pix)
 
         # get the PSD
-        PSD, PSD_I, PSD_phase = utils.merge.PSD(O, I)
+        PSD, PSD_I, PSD_phase = merge.PSD(O, I)
 
         out_m = out[0]
         out_m['I'] = np.abs(np.fft.fftn(O))**2
@@ -121,13 +121,13 @@ def phase(I, support, params, good_pix = None, sample_known = None):
         for alg, iters in alg_iters :
             
             if alg == 'ERA':
-                O, info = phasing2d.ERA(I, iters, **params['phasing_parameters'])
+                O, info = era.ERA(I, iters, **params['phasing_parameters'])
              
             if alg == 'DM':
-                O, info = phasing2d.DM(I,  iters, **params['phasing_parameters'])
+                O, info = dm.DM(I,  iters, **params['phasing_parameters'])
 
             if alg == 'RAAR':
-                O, info = phasing2d.RAAR(I, iters, **params['phasing_parameters'])
+                O, info = raar.RAAR(I, iters, **params['phasing_parameters'])
              
             out[j]['O']           = params['phasing_parameters']['O']          = O
             out[j]['eMod']       += info['eMod']
@@ -143,10 +143,10 @@ def phase(I, support, params, good_pix = None, sample_known = None):
 
 
 if __name__ == "__main__":
-    args = utils.io_utils.parse_cmdline_args_phasing()
+    args = io_utils.parse_cmdline_args_phasing()
     
     # read the h5 file
-    diff, support, good_pix, sample_known, params = utils.io_utils.read_input_h5(args.input)
+    diff, support, good_pix, sample_known, params = io_utils.read_input_h5(args.input)
 
     out = phase(diff, support, params, \
                         good_pix = good_pix, sample_known = sample_known)
@@ -155,7 +155,7 @@ if __name__ == "__main__":
     
     # write the h5 file 
     if rank == 0 :
-        utils.io_utils.write_output_h5(params['output']['path'], diff, out['I'], support, out['support'], \
+        io_utils.write_output_h5(params['output']['path'], diff, out['I'], support, out['support'], \
                                       good_pix, sample_known, out['O'], out['eMod'], out['eCon'], None,   \
                                       out['PRTF'], out['PRTF_rav'], out['PSD'], out['PSD_I'], out['B_rav'])
 

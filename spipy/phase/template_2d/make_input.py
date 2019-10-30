@@ -1,17 +1,16 @@
 #!/usr/bin/env python
 
 import time
-import sys, os
+import sys
+import os
 import numpy as np
 import configparser
-import subprocess
+import scipy
 
-import phasing2d.utils as utils
-from phasing2d.utils import io_utils
-from phasing2d.utils import zero_pad
-from phasing2d.utils import circle
+from .utils import io_utils, zero_pad, circle
 
 def make_input(args_config):
+    print(__file__)
 
     config = configparser.ConfigParser()
     config.read(args_config)
@@ -99,7 +98,6 @@ def make_input(args_config):
         elif os.path.splitext(file_name)[1]=='.bin' or os.path.splitext(file_name)[1]=='':
             solid_known = np.fromfile(file_name, dtype=dtype).reshape(shape)
         elif os.path.splitext(file_name)[1]=='.mat':
-            import scipy
             solid_known = scipy.io.loadmat(file_name).values()[0]
         else:
             raise RuntimeError('Cannot open your input initial model file')
@@ -113,9 +111,9 @@ def make_input(args_config):
     io_utils.write_input_h5(params['output']['path'], diff, support, \
             beamstop, solid_known, args_config)
 
-
+'''
 if __name__ == "__main__":
     args = io_utils.parse_cmdline_args()
     
     make_input(args.config)
-    
+'''

@@ -3,8 +3,8 @@ import sys, os
 import re
 import copy
 
-import phasing3d
-import phasing3d.utils as utils
+from src import era, raar, dm
+from utils import io_utils, merge
 
 import multiprocessing as mp
 from mpi4py import MPI
@@ -33,61 +33,47 @@ def out_merge(out, I, good_pix):
         background = 0
     
     # centre, flip and average the retrievals
-    O, PRTF    = utils.merge.merge_sols(np.array([i['O'] for i in out]), True)
-    support, _ = utils.merge.merge_sols(np.array([i['support'] for i in out]).astype(np.float), True)
+    O, PRTF    = merge.merge_sols(np.array([i['O'] for i in out]), True)
+    support, _ = merge.merge_sols(np.array([i['support'] for i in out]).astype(np.float), True)
        
     eMod    = np.array([i['eMod'] for i in out])
     eCon    = np.array([i['eCon'] for i in out])
 
     # mpi
-    if rank == 0:
-        Os       = np.empty([size]+list(O.shape), dtype=O.dtype)
-        supports = np.empty([size]+list(support.shape), dtype=support.dtype)
-        eMods    = np.empty([size]+list(eMod.shape), dtype=eMod.dtype)
-        eCons    = np.empty([size]+list(eCon.shape), dtype=eCon.dtype)
-        PRTFs    = np.empty([size]+list(PRTF.shape), dtype=PRTF.dtype)
-        if background is not 0 :
-            backgrounds = np.empty([size]+list(background.shape), dtype=background.dtype)
-    else:
-        Os       = None
-        supports = None
-        eMods    = None
-        eCons    = None
-        PRTFs    = None
-        backgrounds = None
-
-    comm.Gather(O, Os, root=0)
-    comm.Gather(support, supports, root=0)
-    comm.Gather(eMod, eMods, root=0)
-    comm.Gather(eCon, eCons, root=0)
-    comm.Gather(PRTF, PRTFs, root=0)
+    comm.Barrier()
+    
+    eMod       = comm.gather(eMod, root=0)
+    eCon       = comm.gather(eCon, root=0)
+    PRTF       = comm.gather(PRTF, root=0)
+    O          = comm.gather(O, root=0)
+    support    = comm.gather(support, root=0)
     if background is not 0 :
-        comm.Gather(background, backgrounds, root=0)
+        background = comm.gather(background, root=0)
 
     if rank == 0 :
-        PRTFs       = np.abs(np.mean(np.array(PRTFs), axis=0))
-        eMods       = np.array(eMods).reshape((size*eMods[0].shape[0], eMods[0].shape[1]))
-        eCons       = np.array(eCons).reshape((size*eCons[0].shape[0], eCons[0].shape[1]))
-        Os, _       = utils.merge.merge_sols(np.array(Os))
-        supports, _ = utils.merge.merge_sols(np.array(supports), True)
+        PRTF       = np.abs(np.mean(np.array(PRTF), axis=0))
+        eMod       = np.array(eMod).reshape((size*eMod[0].shape[0], eMod[0].shape[1]))
+        eCon       = np.array(eCon).reshape((size*eCon[0].shape[0], eCon[0].shape[1]))
+        O, _       = merge.merge_sols(np.array(O))
+        support, _ = merge.merge_sols(np.array(support), True)
         if background is not 0 :
-            backgrounds = np.mean(np.array(backgrounds), axis=0)
+            background = np.mean(np.array(background), axis=0)
 
     if rank == 0:
         # get the PSD
-        PSD, PSD_I, PSD_phase = utils.merge.PSD(Os, I)
+        PSD, PSD_I, PSD_phase = merge.PSD(O, I)
 
         out_m = out[0]
-        out_m['I'] = np.abs(np.fft.fftn(Os))**2
-        out_m['O'] = Os
-        out_m['background'] = backgrounds
+        out_m['I'] = np.abs(np.fft.fftn(O))**2
+        out_m['O'] = O
+        out_m['background'] = background
         out_m['PSD']      = PSD
         out_m['PSD_I']    = PSD_I
-        out_m['PRTF']     = PRTFs
+        out_m['PRTF']     = PRTF
         out_m['PRTF_rav'] = np.array([0]) #PRTF_rav
-        out_m['eMod']     = eMods
-        out_m['eCon']     = eCons
-        out_m['support']  = supports
+        out_m['eMod']     = eMod
+        out_m['eCon']     = eCon
+        out_m['support']  = support
         return out_m
     else:
     	return None
@@ -124,13 +110,13 @@ def phase(I, support, params, good_pix = None, sample_known = None):
         for alg, iters in alg_iters :
             
             if alg == 'ERA':
-                O, info = phasing3d.ERA(I, iters, **params0['phasing_parameters'])
+                O, info = era.ERA(I, iters, **params0['phasing_parameters'])
          
             if alg == 'DM':
-                O, info = phasing3d.DM(I,  iters, **params0['phasing_parameters'])
+                O, info = dm.DM(I,  iters, **params0['phasing_parameters'])
 
             if alg == 'RAAR':
-                O, info = phasing3d.RAAR(I,  iters, **params0['phasing_parameters'])
+                O, info = raar.RAAR(I,  iters, **params0['phasing_parameters'])
          
             out[j]['O']           = params0['phasing_parameters']['O']          = O
             out[j]['eMod']       += info['eMod']
@@ -147,10 +133,10 @@ def phase(I, support, params, good_pix = None, sample_known = None):
 
 
 if __name__ == "__main__":
-    args = utils.io_utils.parse_cmdline_args_phasing()
+    args = io_utils.parse_cmdline_args_phasing()
     
     # read the h5 file
-    diff, support, good_pix, sample_known, params = utils.io_utils.read_input_h5(args.input)
+    diff, support, good_pix, sample_known, params = io_utils.read_input_h5(args.input)
 
     out = phase(diff, support, params, \
                         good_pix = good_pix, sample_known = sample_known)
@@ -159,7 +145,7 @@ if __name__ == "__main__":
     
     # write the h5 file 
     if rank == 0 :
-        utils.io_utils.write_output_h5(params['output']['path'], diff, out['I'], support, out['support'], \
+        io_utils.write_output_h5(params['output']['path'], diff, out['I'], support, out['support'], \
                                       good_pix, sample_known, out['O'], out['eMod'], out['eCon'], None,   \
                                       out['PRTF'], out['PRTF_rav'], out['PSD'], out['PSD_I'], out['B_rav'])
         print("\nDone ! Phasing result is stored in " + params['output']['path'] + '/output.h5\n')

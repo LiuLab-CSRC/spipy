@@ -19,7 +19,7 @@ if __name__=="__main__":
 	phase2d.config_project(params = parameters)
 
 	print("\nStart !")
-	phase2d.run_project(num_proc=2, nohup=False, cluster=True)
+	phase2d.run_project(num_proc=2, nohup=False, cluster=False)
 
 	print("\nRun ' python show_result.py output.h5 ' at the project dir to see results.\n")
 	sys.exit(0)
