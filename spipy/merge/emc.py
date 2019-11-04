@@ -63,7 +63,7 @@ def use_project(project_path):
 	temp = None
 	if project_path[0] == '/' or project_path[0:2] == '~/':
 		temp = os.path.abspath(project_path)
-		if os.path.exits(temp):
+		if os.path.exists(temp):
 			_workpath = temp
 		else:
 			raise ValueError("The project " + temp + " doesn't exists. Exit")
