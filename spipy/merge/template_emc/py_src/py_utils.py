@@ -85,7 +85,7 @@ def check_to_overwrite(fn):
     no  = set(['no', 'n', 'nope', 'nay', 'not'])
     if os.path.isfile(fn):
         sys.stdout.write("%s is present. Overwrite? [Y or Return/N]: " % fn)
-        choice = raw_input().lower()
+        choice = input().lower()
         if choice in yes:
             overwrite = True
             print("Overwriting " + fn)
@@ -108,7 +108,7 @@ def confirm_oversampling(ratio):
     print('Please see http://www.github.com/duaneloh/Dragonfly/wiki/Oversampling for tips')
     sys.stdout.write('Continue anyway? [Y or Return/N]: ')
     while not done:
-        choice = raw_input().lower()
+        choice = input().lower()
         if choice in yes:
             proceed = True
             done = True
