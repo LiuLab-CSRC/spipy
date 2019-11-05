@@ -69,7 +69,7 @@ def cal_q_pat(detd, lamda, pixsize, det_size, center=None):
 	q = 2*np.sin(theta/2.0)/lamda
 	return q
 
-def cal_r(qlist, detd, lamda, det_r, pixsize):
+def cal_r(qlist, detd, lamda, pixsize):
 	lamda = lamda/10.0
 	theta = 2*np.arcsin(qlist*lamda/2.0)
 	rlist = np.tan(theta)*detd
