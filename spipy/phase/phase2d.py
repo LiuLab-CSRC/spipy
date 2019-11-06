@@ -58,14 +58,13 @@ def use_project(project_path):
 			raise ValueError("The project " + temp + " doesn't exists. Exit")
 
 
-def new_project(data_mask_path, path=None, name=None):
+def new_project(data_path, mask_path=None, path=None, name=None):
 	global __workpath
 
-	data_path = data_mask_path
 	code_path = __file__.split('/phase2d.py')[0]
-	if not os.path.exists(data_path[0]):
+	if not os.path.exists(data_path):
 		raise ValueError("\nYour data path is incorrect. Try ABSOLUTE PATH. Exit\n")
-	if data_path[1] is not None and not os.path.exists(data_path[1]):
+	if mask_path is not None and not os.path.exists(mask_path):
 		raise ValueError("\nYour mask path is incorrect. Try ABSOLUTE PATH. Exit\n")
 	if path == None or path == "./":
 		path = os.path.abspath(sys.path[0])
@@ -92,16 +91,16 @@ def new_project(data_mask_path, path=None, name=None):
 	config.set('output', 'path', __workpath)
 	config.set('input', 'fnam', os.path.join(__workpath,'data.bin'))
 	# now load data
-	if data_path[0].split('.')[-1] == 'npy':
-		data = np.load(data_path[0])
+	if data_path.split('.')[-1] == 'npy':
+		data = np.load(data_path)
 		data.tofile(__workpath+'/ori_intens/pattern.bin')
 		config.set('input', 'dtype', str(data.dtype))
-	elif data_path[0].split('.')[-1] == 'bin':
-		cmd = 'cp ' + data_path[0] + ' ' + __workpath + '/ori_intens/pattern.bin'
+	elif data_path.split('.')[-1] == 'bin':
+		cmd = 'cp ' + data_path + ' ' + __workpath + '/ori_intens/pattern.bin'
 		subprocess.check_call(cmd, shell=True)
-	elif data_path[0].split('.')[-1] == 'mat':
+	elif data_path.split('.')[-1] == 'mat':
 		import scipy.io as sio
-		dfile = sio.loadmat(data_path[0])
+		dfile = sio.loadmat(data_path)
 		data = dfile.values()[0]
 		data.tofile(__workpath+'/ori_intens/pattern.bin')
 		config.set('input', 'dtype', str(data.dtype))
@@ -111,12 +110,12 @@ def new_project(data_mask_path, path=None, name=None):
 	cmd = 'ln -fs ' + __workpath + '/ori_intens/pattern.bin ' + __workpath + '/data.bin'
 	subprocess.check_call(cmd, shell=True)
 	# now load mask data
-	if data_path[1] is not None:
-		cmd = 'cp ' + data_path[1] + ' ' + __workpath + '/ori_intens/mask.npy'
+	if mask_path is not None:
+		cmd = 'cp ' + mask_path + ' ' + __workpath + '/ori_intens/mask.npy'
 		subprocess.check_call(cmd, shell=True)
 		cmd = 'ln -fs ' + __workpath + '/ori_intens/mask.npy ' + __workpath + '/mask.npy'
 		subprocess.check_call(cmd, shell=True)
-	if data_path[1] is not None:
+	if mask_path is not None:
 		config.set('input', 'user_mask', os.path.join(__workpath,'mask.npy'))
 	else:
 		config.set('input', 'user_mask', 'None')

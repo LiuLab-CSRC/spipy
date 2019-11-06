@@ -12,7 +12,7 @@ if __name__=="__main__":
 		'phasing_parameters|background' : 'True', 'input|init_model' : None}
 
 	print("\nCreate new project ...")
-	phase2d.new_project(data_mask_path=['pattern.bin','pat_mask.npy'], path='./', name=None)
+	phase2d.new_project(data_path='pattern.bin',mask_path='pat_mask.npy', path='./', name=None)
 
 	print("\nConfiguring ...")
 	parameters = dict(params_essential, **params_optional)
