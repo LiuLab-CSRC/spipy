@@ -8,8 +8,8 @@
 
 #### Content
 1. Program -> this repository
-2. User guide and API reference ... (to be done)
-3. GUI -> [Link](https://github.com/estonshi/spipy_gui/tree/v1.1)
+2. Wiki -> <https://estonshi.github.io/spipy-wiki/>
+3. GUI -> [Github repo](https://github.com/estonshi/spipy_gui/tree/v1.1)
 
 #### Older version
 1. version 2.1 & GUI, for Python2.7 -> [Link](https://github.com/LiuLab-CSRC/spipy/tree/examples)
