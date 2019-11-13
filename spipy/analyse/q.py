@@ -31,7 +31,7 @@ def help(module):
 		print("    -> Input: detd (mm) , lamda (A), pixsize (mm)")
 		print("              det_size ( detector size in pixels, [Nx, Ny]")
 		print("      option: center ( center of pattern in pixels, [Cx, Cy], default=None and use det_size/2 as center )")
-		print("    -> Output: q_coor ( mapped coordinates in k space, numpy.array, shape = (Nx, Ny, 3), in pixel )")
+		print("    -> Output: q_coor ( mapped coordinates in k space, numpy.array, shape = (3, Nx, Ny), in pixel )")
 		print("               qmax ( max q of the detector, in nm^-1 )")
 		print("               qunit ( unit q length (corresponding to 1 pixel) of the detector, in nm^-1 )")
 		print("               q_len ( side length of k space matrix, int, in pixel )")
@@ -98,9 +98,10 @@ def ewald_mapping(detd, lamda, pixsize, det_size, center=None):
 	snorm = np.linalg.norm([sx, sy, sz], axis=0)
 	ewald_r = 1.0 / lamda
 	q_coor = np.array([sx, sy, sz]) / snorm * ewald_r
-	q_coor = q_coor.T - np.array([0, 0, ewald_r])   # shape=(Nx,Ny,3) , in nm^-1
+	q_coor = q_coor.T - np.array([0, 0, ewald_r])   # shape=(Ny,Nx,3) , in nm^-1
+	q_coor = q_coor.T                               # shape=(3,Nx,Ny) , in nm^-1
 	qinfo = cal_q(detd, lamda*10, 2, pixsize)    # in nm^-1
-	qmax = np.max(np.linalg.norm(q_coor, axis=2))
+	qmax = np.max(np.linalg.norm(q_coor, axis=0))
 	qunit = qinfo[1]
 	q_len = int(qmax / qunit) * 2 + 3
 	q_coor = q_coor / qunit                    # in pixel

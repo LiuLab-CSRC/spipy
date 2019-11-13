@@ -256,7 +256,7 @@ class simulation():
         to_photons = self.config_param['photons']
         # get pixel coordinates in k-space of our detector with rotate angle=0
         q_coor, q_max, _, q_len = q.ewald_mapping(det_d, det_lambda, det_ps, [det_l, det_l], center=None)
-        q_coor = q_coor.reshape([det_l*det_l,3])
+        q_coor = q_coor.reshape([3,det_l*det_l])   # shape=(3,Nq)
 
         # print information
         total_num_data = comm.gather(self.config_param['num_data'], root=0)
@@ -280,7 +280,7 @@ class simulation():
 
         intensity = comm.bcast(intensity, root=0)
         patterns = tools.get_slice(model=intensity, rotations=euler_angles, det_size=[det_l, det_l], \
-                            mask=None, slice_coor_ori=q_coor.T, euler_order=self.order)
+                            mask=None, slice_coor_ori=q_coor, euler_order=self.order)
         patterns *= self.inten_correction   # patterns.shape=(num,det_l,det_l)
         # evaluate adu and add noise
         photons = float(self.config_param['fluence'] / 1e10)
