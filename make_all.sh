@@ -211,7 +211,7 @@ fi
 # install to conda env
 # make soft link
 echo "==> Install spipy to conda env"
-python_path=`find ${curr_env_path}/envs/${env_name}/lib -name "python3.*" -maxdepth 1`
+python_path=`find ${curr_env_path}/envs/${env_name}/lib -maxdepth 1 -name "python3.*"`
 if [ ! -d ${python_path} ]
 then
 	echo "I can't find an unique python in your anaconda environment."
