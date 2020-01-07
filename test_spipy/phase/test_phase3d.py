@@ -12,7 +12,7 @@ if __name__=="__main__":
 		'phasing_parameters|background' : 'True', 'input|init_model' : None}
 
 	print("\nCreate new project ...")
-	phase3d.new_project(data_path='3dvolume.bin', mask_path=None, path='./', name='mytest')
+	phase3d.new_project(data_path='volume.npy', mask_path=None, path='./', name='mytest')
 
 	print("\nConfiguring ...")
 	parameters = dict(params_essential, **params_optional)
