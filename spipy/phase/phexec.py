@@ -2,6 +2,7 @@ from . import models
 from .models import model_merge
 import numpy as np
 import os
+import json
 
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
@@ -10,23 +11,97 @@ msize = comm.Get_size()
 
 class Runner():
 
-    def __init__(self, inputnode=None, outputnode=None):
+    def __init__(self, inputnode = None, outputnode = None, loadfile = None, change_dataset = None):
         if inputnode is not None and outputnode is not None:
-            self.compile(inputnode, outputnode)
+            self.__compile(inputnode, outputnode)
+        elif os.path.isfile(loadfile):
+            self.load_model(loadfile, change_dataset)
+        else:
+            raise RuntimeError("[Error] Initiation needs some input !")
 
-    def compile(self, inputnode, outputnode):
+    def __compile(self, inputnode, outputnode):
         if type(inputnode) != models.phInput:
             raise RuntimeError("[Error] Input node is invalid !")
         if type(outputnode) != models.phOutput:
             raise RuntimeError("[Error] Output node is invalid !")
-        self.input_node = inputnode
+        self.inputnode = inputnode
         self.outputnode = outputnode
+        self.archive = {}
         # check inputnode -> outputnode
-        tmp = self.input_node
+        tmp = self.inputnode
+        number = 0
         while tmp != self.outputnode:
+            # get rid of repeating name
+            i = 1
+            tmp_name = tmp.name
+            while tmp_name in self.archive.keys():
+                tmp_name = tmp.name + "_%d" % i
+                i += 1
+            self.archive[tmp_name] = number
+            tmp.rename(tmp_name)
+            number += 1
+            # get children
             tmp = tmp.children
             if tmp is None:
                 raise RuntimeError("[Error] Cannot move from input node to output node !")
+        self.archive[self.outputnode.name] = number
+
+    def load_model(self, model_file, change_dataset = None):
+        # load model from json file
+        # only support 1 input node with 1 output node
+        print("Loading model from file '%s' ..." % model_file)
+        with open(model_file, "r") as fp:
+            input_info, info = json.load(fp)
+        if input_info["config_dict"]["pattern_path"] is None:
+            if change_dataset is None or "pattern_path" not in change_dataset.keys():
+                raise ValueError("[Error] Your loaded model is a skeleton model, I need 'pattern_path' in 'change_dataset' parameter !")
+        if type(change_dataset) == dict:
+            for k, v in change_dataset.items():
+                input_info["config_dict"][k] = v
+        # get input/output node
+        inputnode = models.phInput(input_info["config_dict"], input_info["name"])
+        # get all other nodes
+        outputnode = inputnode
+        children = input_info["children"]
+        while children is not None:
+            ch_info = info[children]
+            thisclass = models.get_model_from_classname(ch_info["classname"])
+            outputnode = thisclass(**ch_info["parameters"]).after(outputnode)
+            children = ch_info["children"]
+        self.__compile(inputnode, outputnode)
+        print("Done.\n")
+
+    def dump_model(self, model_file, skeleton = False):
+        if rank != 0:
+            return
+        # save this model to a json file
+        # only support 1 input node with 1 output node, linear structure
+        input_info = {"config_dict" : None, "name" : None}
+        info = [None] * (len(self.archive.keys())-1)
+        # input node
+        input_info["config_dict"] = self.inputnode.config_dict.copy()
+        if skeleton is True:
+            input_info["config_dict"]["pattern_path"] = None
+        input_info["name"] = self.inputnode.name
+        input_info["children"] = 0
+        # other nodes
+        tmp = self.inputnode
+        while True:
+            tmp = tmp.children
+            # if there are multiple inputnodes, the "index" should be changed
+            index = self.archive[tmp.name] - 1 # - len(input_info)
+            this_info = {"parameters" : tmp.config_bk, \
+                        "classname" : tmp.__class__.__name__, \
+                        "children" : None}
+            tmp_ch = tmp.children
+            if tmp_ch is None:
+                info[index] = this_info
+                break
+            else:
+                this_info["children"] = self.archive[tmp_ch.name] - 1 # - len(input_info)
+                info[index] = this_info
+        with open(model_file, "w") as fp:
+            json.dump([input_info, info], fp)
 
     def run(self, repeat = 1):
         datapack = None
@@ -34,7 +109,7 @@ class Runner():
         # repeats
         for j in range(repeat):
             if rank == 0 : print("\n >>> Rank 0 phasing repeat No.%d" % (j+1))
-            this_node = self.input_node
+            this_node = self.inputnode
             # for single child node
             while this_node is not None:
                 datapack = this_node.run(datapack)

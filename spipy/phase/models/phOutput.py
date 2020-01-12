@@ -23,6 +23,8 @@ class phOutput(PhModel):
         self.eMods = []
         self.eCons = []
         self.output = {}
+        # config dict
+        self.config_bk = {"name" : self.name}
 
     def run(self, datapack):
         # append solutions of this rank

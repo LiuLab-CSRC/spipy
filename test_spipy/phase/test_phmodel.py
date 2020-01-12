@@ -9,7 +9,11 @@ msize = comm.Get_size()
 
 if __name__ == "__main__":
     
-    task = int(sys.argv[1])
+    try:
+        task = int(sys.argv[1])
+    except:
+        print("Usage : python test_phmodel.py [2/3]")
+        sys.exit(0)
 
     if task == 2:
 
@@ -27,13 +31,14 @@ if __name__ == "__main__":
         iters = [100,200,200]
         support_size = 100
         beta = 0.8
+        newdataset = {"pattern_path" : "pattern.npy", "mask_path" : "pat_mask.npy", "initial_model" : None}
 
     else:
 
         config_input = {
             "pattern_path" : "volume.npy",
             "mask_path" : None,
-            "center" : [62,62],
+            "center" : [62,62,62],
             "center_mask" : 5,
             "edge_mask" : [64,70],
             "subtract_percentile" : False,
@@ -44,6 +49,7 @@ if __name__ == "__main__":
         iters = [50,100,100]
         support_size = 2000
         beta = 0.8
+        newdataset = {"pattern_path" : "volume.npy", "mask_path" : None, "initial_model" : None}
 
     l1 = phmodel.pInput(config_input)
     l2 = phmodel.RAAR(iters[0], support_size, beta).after(l1)
@@ -52,7 +58,17 @@ if __name__ == "__main__":
     l5 = phmodel.pOutput().after(l4)
 
     runner = phexec.Runner(inputnode = l1, outputnode = l5)
-    out = runner.run(repeat = 2)
+    out = runner.run(repeat = 1)
     
     if mrank == 0:
         runner.plot_result(out)
+
+
+    # Dump model and load it
+
+    runner.dump_model("temp_model.json", skeleton=True)
+    runner2 = phexec.Runner(inputnode = None, outputnode = None, \
+                            loadfile = "temp_model.json", change_dataset = newdataset)
+    out = runner2.run(repeat = 1)
+
+

@@ -19,6 +19,8 @@ class ERA(PhModel):
         else:
             name = str(name)
         super().__init__(name)
+        # config dict
+        self.config_bk = {"name" : self.name, "iteration" : self.iteration, "support_size" : self.sup_size}
 
     def run(self, datapack):
 

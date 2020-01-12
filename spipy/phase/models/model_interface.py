@@ -155,8 +155,11 @@ class nodeData(object):
 
 class PhModel(object):
 
+    __classname__ = ""
+
     def __init__(self, name):
         self.name = name
+        self.config_bk = {"name" : name}
         # self.children = []
         self.children = None  # can be expand to multi-children case
         self.radial_s = None
@@ -164,6 +167,10 @@ class PhModel(object):
     def __set_child(self, childobj):
         # self.children.append(childobj)
         self.children = childobj
+
+    def rename(self, newname):
+        self.name = newname
+        self.config_bk["name"] = newname
 
     def after(self, fatherobj):
         fatherobj.__set_child(self)

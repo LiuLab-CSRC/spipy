@@ -97,3 +97,26 @@ class phInput(PhModel):
         # make input
         self.datapack = streamData(sample_ret, pattern, fixed_support, background, good_pixel)
         return self.datapack
+
+    def change_dataset(self, new_data_dict):
+        # change data files
+        '''new_data_dict
+        {
+        "pattern_path" : xxx.npy,
+        "mask_path" : xxx.npy, (1 is masked area)
+        "initial_model" : xxx.npy
+        }
+        '''
+        for k, v in new_data_dict.items():
+            if k in self.config_dict.keys():
+                self.config_dict[k] = v
+            else:
+                raise ValueError("Key '%s' is not a configuration parameter" % str(k))
+
+
+
+
+
+
+
+
