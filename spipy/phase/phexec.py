@@ -49,10 +49,10 @@ class Runner():
     def load_model(self, model_file, change_dataset = None):
         # load model from json file
         # only support 1 input node with 1 output node
-        print("Loading model from file '%s' ..." % model_file)
+        print("\nLoading model from file '%s' ..." % model_file)
         with open(model_file, "r") as fp:
             input_info, info = json.load(fp)
-        if input_info["config_dict"]["pattern_path"] is None:
+        if "pattern" not in input_info["config_dict"].keys():
             if change_dataset is None or "pattern_path" not in change_dataset.keys():
                 raise ValueError("[Error] Your loaded model is a skeleton model, I need 'pattern_path' in 'change_dataset' parameter !")
         if type(change_dataset) == dict:
@@ -69,21 +69,27 @@ class Runner():
             outputnode = thisclass(**ch_info["parameters"]).after(outputnode)
             children = ch_info["children"]
         self.__compile(inputnode, outputnode)
-        print("Done.\n")
+        print("Done.")
 
     def dump_model(self, model_file, skeleton = False):
         if rank != 0:
             return
         # save this model to a json file
         # only support 1 input node with 1 output node, linear structure
-        input_info = {"config_dict" : None, "name" : None}
+        input_info = {"config_dict" : None, "name" : None, "children" : 0}
         info = [None] * (len(self.archive.keys())-1)
         # input node
-        input_info["config_dict"] = self.inputnode.config_dict.copy()
-        if skeleton is True:
-            input_info["config_dict"]["pattern_path"] = None
         input_info["name"] = self.inputnode.name
-        input_info["children"] = 0
+        input_info["config_dict"] = self.inputnode.config_dict.copy()
+        if not skeleton:
+            input_info["config_dict"]["pattern"] = np.load(input_info["config_dict"]["pattern_path"]).tolist()
+            if input_info["config_dict"]["mask_path"] is not None:
+                input_info["config_dict"]["mask"] = np.load(input_info["config_dict"]["mask_path"]).tolist()
+            if input_info["config_dict"]["initial_model"] is not None:
+                input_info["config_dict"]["initial"] = np.load(input_info["config_dict"]["initial_model"]).tolist()
+        input_info["config_dict"]["pattern_path"] = None
+        input_info["config_dict"]["mask_path"] = None
+        input_info["config_dict"]["initial_model"] = None
         # other nodes
         tmp = self.inputnode
         while True:
@@ -102,6 +108,7 @@ class Runner():
                 info[index] = this_info
         with open(model_file, "w") as fp:
             json.dump([input_info, info], fp)
+        print("\nDump model to %s." % model_file)
 
     def run(self, repeat = 1):
         datapack = None
@@ -119,6 +126,7 @@ class Runner():
 
         if msize == 1:
             out["diffraction_amp"] = datapack.copy_diff_amp()
+            print("Finished.")
             return out
 
         # mpi reduce
@@ -139,6 +147,7 @@ class Runner():
             out["eMod"] = eMod
             out["eCon"] = eCon
             out["diffraction_amp"] = datapack.copy_diff_amp()
+            print("Finished.")
             return out
         else:
             return None

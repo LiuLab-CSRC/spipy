@@ -28,9 +28,10 @@ if __name__ == "__main__":
             "background" : True,
             "initial_model" : None
         }
-        iters = [100,200,200]
+        iters = [200,100,100,200]
         support_size = 100
         beta = 0.8
+        gamma = 0.05
         newdataset = {"pattern_path" : "pattern.npy", "mask_path" : "pat_mask.npy", "initial_model" : None}
 
     else:
@@ -46,18 +47,20 @@ if __name__ == "__main__":
             "background" : True,
             "initial_model" : None
         }
-        iters = [50,100,100]
+        iters = [100,50,50,100]
         support_size = 2000
         beta = 0.8
+        gamma = 0.5
         newdataset = {"pattern_path" : "volume.npy", "mask_path" : None, "initial_model" : None}
 
     l1 = phmodel.pInput(config_input)
-    l2 = phmodel.RAAR(iters[0], support_size, beta).after(l1)
-    l3 = phmodel.DM(iters[1], support_size).after(l2)
-    l4 = phmodel.ERA(iters[2], support_size).after(l3)
-    l5 = phmodel.pOutput().after(l4)
+    l2 = phmodel.HIO(iters[0], support_size, gamma).after(l1)
+    l3 = phmodel.RAAR(iters[1], support_size, beta).after(l2)
+    l4 = phmodel.DM(iters[2], support_size).after(l3)
+    l5 = phmodel.ERA(iters[3], support_size).after(l4)
+    l6 = phmodel.pOutput().after(l5)
 
-    runner = phexec.Runner(inputnode = l1, outputnode = l5)
+    runner = phexec.Runner(inputnode = l1, outputnode = l6)
     out = runner.run(repeat = 1)
     
     if mrank == 0:
@@ -66,9 +69,9 @@ if __name__ == "__main__":
 
     # Dump model and load it
 
-    runner.dump_model("temp_model.json", skeleton=True)
+    runner.dump_model("temp_model.json", skeleton=False)
     runner2 = phexec.Runner(inputnode = None, outputnode = None, \
-                            loadfile = "temp_model.json", change_dataset = newdataset)
+                            loadfile = "temp_model.json", change_dataset = None)
     out = runner2.run(repeat = 1)
 
 

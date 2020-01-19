@@ -33,6 +33,13 @@ class phInput(PhModel):
             "initial_model" : xxx.npy
             } 
         '''
+        '''optional
+            {
+            "pattern" : list (pattern intensity)
+            "mask" : list (mask area)
+            "initial" : list (initial sample model inensity)
+            }
+        '''
         if rank == 0 : print("Configuration ...")
         pattern = None
         good_pixel = None
@@ -40,7 +47,10 @@ class phInput(PhModel):
         sample_ret = None
         fixed_support = None
         # pattern
-        pattern = np.load(self.config_dict['pattern_path'])
+        if 'pattern' in self.config_dict.keys():
+            pattern = np.array(self.config_dict['pattern'])
+        else:
+            pattern = np.load(self.config_dict['pattern_path'])
         pattern = np.nan_to_num(pattern)
         pattern[pattern < 0] = 0
         good_pixel = np.ones(pattern.shape, dtype=int)
@@ -51,7 +61,10 @@ class phInput(PhModel):
             center = (np.array(pattern.shape)-1)/2.0
         # usermask
         if self.config_dict['mask_path'] is not None:
-            usermask = np.load(self.config_dict['mask_path'])
+            if 'mask' in self.config_dict.keys():
+                usermask = np.array(self.config_dict['mask'], dtype=int)
+            else:
+                usermask = np.load(self.config_dict['mask_path'])
             if usermask.shape != pattern.shape:
                 raise RuntimeError("Input user mask has different size with input pattern !")
             good_pixel[np.where(usermask==1)] = 0
@@ -78,7 +91,10 @@ class phInput(PhModel):
             background = None
         # sample_ret
         if self.config_dict['initial_model'] is not None:
-            sample_ret = np.load(self.config_dict['initial_model'])
+            if 'initial' in self.config_dict.keys():
+                sample_ret = np.array(self.config_dict['initial'])
+            else:
+                sample_ret = np.load(self.config_dict['initial_model'])
         else:
             sample_ret = np.random.random(size=pattern.shape)
         # subtract

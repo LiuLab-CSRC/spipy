@@ -2,6 +2,7 @@ from .phInput import phInput
 from .ERA import ERA
 from .DM import DM
 from .RAAR import RAAR
+from .HIO import HIO
 from .phOutput import phOutput
 
 def get_model_from_classname(class_name):
@@ -15,5 +16,7 @@ def get_model_from_classname(class_name):
 		return DM
 	elif class_name == RAAR.__name__:
 		return RAAR
+	elif class_name == HIO.__name__:
+		return HIO
 	else:
 		raise ValueError("class name error !")
