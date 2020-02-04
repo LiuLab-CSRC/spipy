@@ -152,6 +152,18 @@ class Runner():
         else:
             return None
 
+    def save_h5(self, out, save_file):
+        import h5py
+        fp = h5py.File(save_file, "w")
+        fp.create_dataset("sample_retrieved", data=out["sample_ret"], chunks=True, compression="gzip")
+        fp.create_dataset("support_retrieved", data=out["support"], chunks=True, compression="gzip")
+        fp.create_dataset("PRTF", data=out["PRTF"], chunks=True, compression="gzip")
+        fp.create_dataset("background", data=out["background"], chunks=True, compression="gzip")
+        fp.create_dataset("modulus_error", data=out["eMod"], chunks=True)
+        fp.create_dataset("convergence_error", data=out["eCon"], chunks=True)
+        fp.create_dataset("diffraction_amplitute", data=out["diffraction_amp"], chunks=True, compression="gzip")
+        fp.close()
+
     def plot_result(self, out):
         import matplotlib.pyplot as plt
         from spipy.image import radp
