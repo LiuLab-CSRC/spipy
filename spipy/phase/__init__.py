@@ -1,7 +1,9 @@
-__all__ = ['phase3d', 'phase2d']
+__all__ = ['phase3d', 'phase2d', 'phexec', 'phmodel']
 
 from . import phase3d
 from . import phase2d
+from . import phexec
+from . import phmodel
 
 def help(module = None):
 	import os

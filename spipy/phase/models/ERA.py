@@ -20,9 +20,12 @@ class ERA(PhModel):
             name = str(name)
         super().__init__(name)
         # config dict
-        self.config_bk = {"name" : self.name, "iteration" : self.iteration, "support_size" : self.sup_size}
+        self.config_bk["iteration"] = self.iteration
+        self.config_bk["support_size"] = self.sup_size
 
     def run(self, datapack):
+        err_con = []
+        err_mod = []
 
         # going into iterations
         for i in range(self.iteration):
@@ -35,8 +38,11 @@ class ERA(PhModel):
 
             eMod = datapack.calc_eMod()
             eCon = datapack.calc_eCon(sample_ret_0)
-            datapack.add_metrics(eMod, eCon)
+            err_con.append(eCon)
+            err_mod.append(eMod)
 
             if rank == 0 : self.show_progress(i, self.iteration, eCon, eMod )
+
+        datapack.add_metrics(self.name, self.id, err_mod, err_con)
 
         return datapack

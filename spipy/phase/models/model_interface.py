@@ -16,15 +16,25 @@ class streamData(object):
             self.background = background.copy()
         else:
             self.background = None
-        if good_pixel is not None:
-            self.good_pixel = good_pixel.copy()
-        else:
+        if good_pixel is None or type(good_pixel) in [int, float]:
             self.good_pixel = 1
+        else:
+            self.good_pixel = good_pixel.copy()
         self.background_av = None
         self.I_norm = (self.good_pixel * diffraction_pat).sum()
-        # 
+        # data stream path
+        self.stream_path = []
         self.err_mod = []
         self.err_con = []
+
+    def copy(self):
+        new_stream = streamData(self.sample_ret, self.diffraction_amp**2, \
+                        self.init_support, self.background, \
+                        self.good_pixel)
+        new_stream.stream_path = self.stream_path.copy()
+        new_stream.err_mod = self.err_mod.copy()
+        new_stream.err_con = self.err_con.copy()
+        return new_stream
 
     def copy_sample(self):
         return self.sample_ret.copy()
@@ -42,9 +52,12 @@ class streamData(object):
         else:
             self.background = None
 
-    def add_metrics(self, eMod, eCon):
-        self.err_mod.append(eMod)
-        self.err_con.append(eCon)
+    def add_metrics(self, name, id, eMods, eCons):
+        assert len(eMods) == len(eCons), "[Error] Fatal bug, please report."
+        key = "%s-%d" % (name, id)
+        self.stream_path.append(key)
+        self.err_mod.append(eMods)
+        self.err_con.append(eCons)
 
     def calc_intensity(self, node=None):
         if node is None:
@@ -156,34 +169,50 @@ class nodeData(object):
 class PhModel(object):
 
     __classname__ = ""
+    __globalID__ = 0
 
     def __init__(self, name):
         self.name = name
-        self.config_bk = {"name" : name}
-        # self.children = []
-        self.children = None  # can be expand to multi-children case
+        self.id = PhModel.__globalID__
+        self.father_num = 0
+        self.repeat_id = 0
+        self.children = []  # multi-children
         self.radial_s = None
+        self.config_bk = {"name" : self.name}
+        PhModel.__globalID__ += 1
 
-    def __set_child(self, childobj):
-        # self.children.append(childobj)
-        self.children = childobj
+    def __add_child(self, childobj):
+        if childobj in self.children:
+            raise RuntimeError("[Error] One child cannot be added twice !")
+        self.children.append(childobj)
+
+    def set_repeat(self, repeat_id):
+        self.repeat_id = repeat_id
+
+    def has_children(self):
+        if len(self.children) > 0 : return True
+        else : return False
 
     def rename(self, newname):
         self.name = newname
         self.config_bk["name"] = newname
 
     def after(self, fatherobj):
-        fatherobj.__set_child(self)
+        fatherobj.__add_child(self)
+        self.father_num += 1
         return self
 
-    def show_progress(self, iter_now, iter_all, emod, esup, barLength = 15):
+    def show_progress(self, iter_now, iter_all, emod, esup, barLength = 10):
         progress = float(iter_now+1) / float(iter_all)
         if progress >= 1:
-            status = "\nDone.\n"
+            status = "\n"
+            # status = "\nDone.\n"
         else:
             status = ""
         block = int(round(barLength*progress))
-        text = "\r{0}: [{1}] {2}% {3} {4} {5} {6} {7}".format(self.name, "#"*block + "-"*(barLength-block), int(progress*100), iter_now, emod, esup, status, " " * 5)
+        text = "\r{0} : [{1}] {2}% {3} {4} {5} {6}".format("%10s" % (self.name+"-"+str(self.id)), \
+                                                        "#"*block + "-"*(barLength-block), int(progress*100), \
+                                                        iter_now, "%.6f"%emod, "%.6f"%esup, status)
         sys.stdout.write(text)
         sys.stdout.flush()
 

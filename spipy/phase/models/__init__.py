@@ -4,6 +4,7 @@ from .DM import DM
 from .RAAR import RAAR
 from .HIO import HIO
 from .phOutput import phOutput
+from .phMerge import phMerge
 
 def get_model_from_classname(class_name):
 	if class_name == phInput.__name__:
@@ -18,5 +19,7 @@ def get_model_from_classname(class_name):
 		return RAAR
 	elif class_name == HIO.__name__:
 		return HIO
+	elif class_name == phMerge.__name__:
+		return phMerge
 	else:
 		raise ValueError("class name error !")

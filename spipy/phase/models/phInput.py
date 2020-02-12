@@ -9,15 +9,25 @@ rank = comm.Get_rank()
 
 class phInput(PhModel):
 
-    def __init__(self, config_dict, name=None):
+    def __init__(self, config_dict, name=None, data_reload=None):
         # config
         self.config_dict = config_dict
+        self.data_reload = {}
+        # data_reload = {"pattern" : ..., "mask" : ..., "initial" : ...}
+        if data_reload is not None:
+            for k, v in data_reload.items():
+                self.data_reload[k] = v
         # node name
         if name is None:
             name = "Input"
         else:
             name = str(name)
         super().__init__(name)
+        # config bk
+        self.config_bk["config_dict"] = self.config_dict.copy()
+
+    def after(self, fatherobj):
+        raise RuntimeError("phInput node doesn't have father !")
 
     def run(self, datapack=None):
         '''config_dict = 
@@ -33,22 +43,22 @@ class phInput(PhModel):
             "initial_model" : xxx.npy
             } 
         '''
-        '''optional
+        '''data_reload
             {
             "pattern" : list (pattern intensity)
             "mask" : list (mask area)
             "initial" : list (initial sample model inensity)
             }
         '''
-        if rank == 0 : print("Configuration ...")
+        if rank == 0 : print("%10s : Configuration ..." % (self.name+"-"+str(self.id)))
         pattern = None
         good_pixel = None
         background = None
         sample_ret = None
         fixed_support = None
         # pattern
-        if 'pattern' in self.config_dict.keys():
-            pattern = np.array(self.config_dict['pattern'])
+        if 'pattern' in self.data_reload.keys():#self.config_dict.keys():
+            pattern = np.array(self.data_reload['pattern'])
         else:
             pattern = np.load(self.config_dict['pattern_path'])
         pattern = np.nan_to_num(pattern)
@@ -61,8 +71,8 @@ class phInput(PhModel):
             center = (np.array(pattern.shape)-1)/2.0
         # usermask
         if self.config_dict['mask_path'] is not None:
-            if 'mask' in self.config_dict.keys():
-                usermask = np.array(self.config_dict['mask'], dtype=int)
+            if 'mask' in self.data_reload.keys():#self.config_dict.keys():
+                usermask = np.array(self.data_reload['mask'], dtype=int)
             else:
                 usermask = np.load(self.config_dict['mask_path'])
             if usermask.shape != pattern.shape:
@@ -91,8 +101,8 @@ class phInput(PhModel):
             background = None
         # sample_ret
         if self.config_dict['initial_model'] is not None:
-            if 'initial' in self.config_dict.keys():
-                sample_ret = np.array(self.config_dict['initial'])
+            if 'initial' in self.data_reload.keys():#self.config_dict.keys():
+                sample_ret = np.array(self.data_reload['initial'])
             else:
                 sample_ret = np.load(self.config_dict['initial_model'])
         else:
@@ -112,6 +122,7 @@ class phInput(PhModel):
             background = np.fft.fftshift(background)
         # make input
         self.datapack = streamData(sample_ret, pattern, fixed_support, background, good_pixel)
+        self.datapack.add_metrics(self.name, self.id, [], [])
         return self.datapack
 
     def change_dataset(self, new_data_dict):

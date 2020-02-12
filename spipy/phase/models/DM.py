@@ -23,10 +23,12 @@ class DM(PhModel):
             name = str(name)
         super().__init__(name)
         # config dict
-        self.config_bk = {"name" : self.name, "iteration" : self.iteration, "support_size" : self.sup_size}
+        self.config_bk["iteration"] = self.iteration
+        self.config_bk["support_size"] = self.sup_size
 
     def run(self, datapack):
-
+        err_con = []
+        err_mod = []
         node_0 = datapack.dump_node()
         node_sup, self.radial_s, _, _ = model_utils.support_projection_node(datapack, node_0, self.sup_size, self.radial_s)
 
@@ -42,7 +44,8 @@ class DM(PhModel):
 
             eCon = datapack.calc_eCon(sample_ret_0, node_0)
             eMod = datapack.calc_eMod(node_sup)
-            datapack.add_metrics(eMod, eCon)
+            err_con.append(eCon)
+            err_mod.append(eMod)
 
             if rank == 0 : self.show_progress(i, self.iteration, eCon, eMod )
 
@@ -50,6 +53,7 @@ class DM(PhModel):
         if self.bg_av is not None:
             datapack.background_av = self.bg_av.copy()
         datapack.support = self.support.copy()
+        datapack.add_metrics(self.name, self.id, err_mod, err_con)
 
         return datapack
 

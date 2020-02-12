@@ -28,8 +28,8 @@ if __name__ == "__main__":
             "background" : True,
             "initial_model" : None
         }
-        iters = [200,100,100,200]
-        support_size = 100
+        iters = [150,100,200]
+        support_size = 85
         beta = 0.8
         gamma = 0.05
         newdataset = {"pattern_path" : "pattern.npy", "mask_path" : "pat_mask.npy", "initial_model" : None}
@@ -47,31 +47,34 @@ if __name__ == "__main__":
             "background" : True,
             "initial_model" : None
         }
-        iters = [100,50,50,100]
+        iters = [50,100,100]
         support_size = 2000
         beta = 0.8
-        gamma = 0.5
+        gamma = 0.05
         newdataset = {"pattern_path" : "volume.npy", "mask_path" : None, "initial_model" : None}
 
-    l1 = phmodel.pInput(config_input)
-    l2 = phmodel.HIO(iters[0], support_size, gamma).after(l1)
-    l3 = phmodel.RAAR(iters[1], support_size, beta).after(l2)
-    l4 = phmodel.DM(iters[2], support_size).after(l3)
-    l5 = phmodel.ERA(iters[3], support_size).after(l4)
+    l1_0 = phmodel.pInput(config_input)
+    l1_1 = phmodel.pInput(config_input)
+    l2_0 = phmodel.HIO(iters[0], support_size, gamma).after(l1_0)
+    l2_1 = phmodel.ERA(iters[0], support_size).after(l1_1)
+    l2_2 = phmodel.RAAR(iters[0], support_size, beta).after(l1_1)
+    lm = phmodel.pMerge().after(l2_0).after(l2_1).after(l2_2)
+    l4 = phmodel.DM(iters[1], support_size).after(lm)
+    l5 = phmodel.HIO(iters[2], support_size, gamma).after(l4)
     l6 = phmodel.pOutput().after(l5)
 
-    runner = phexec.Runner(inputnode = l1, outputnode = l6)
+    runner = phexec.Runner(inputnodes = [l1_0, l1_1], outputnode = l6)
     out = runner.run(repeat = 1)
-    
+
     if mrank == 0:
         runner.plot_result(out)
 
-
-    # Dump model and load it
-
+    # Dump model
     runner.dump_model("temp_model.json", skeleton=False)
-    runner2 = phexec.Runner(inputnode = None, outputnode = None, \
-                            loadfile = "temp_model.json", change_dataset = None)
+'''
+    # Reload model
+    runner2 = phexec.Runner(inputnodes = None, outputnode = None, \
+                loadfile = "temp_model.json", reload_dataset = {0:newdataset})
     out = runner2.run(repeat = 1)
-
+'''
 

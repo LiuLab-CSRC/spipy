@@ -11,122 +11,213 @@ msize = comm.Get_size()
 
 class Runner():
 
-    def __init__(self, inputnode = None, outputnode = None, loadfile = None, change_dataset = None):
-        if inputnode is not None and outputnode is not None:
-            self.__compile(inputnode, outputnode)
+    def __init__(self, inputnodes = None, outputnode = None, loadfile = None, reload_dataset = None):
+        if inputnodes is not None and outputnode is not None:
+            self.__compile(inputnodes, outputnode)
         elif os.path.isfile(loadfile):
-            self.load_model(loadfile, change_dataset)
+            self.load_model(loadfile, reload_dataset)
         else:
             raise RuntimeError("[Error] Initiation needs some input !")
 
-    def __compile(self, inputnode, outputnode):
-        if type(inputnode) != models.phInput:
-            raise RuntimeError("[Error] Input node is invalid !")
+    def __compile(self, inputnodes, outputnode):
+        if type(inputnodes) != list:
+            raise RuntimeError("[Error] 'inputnodes' should be a list !")
+        else:
+            for tmp in inputnodes:
+                if type(tmp) != models.phInput:
+                    raise RuntimeError("[Error] Items in 'inputnodes' should be phInput object !")
         if type(outputnode) != models.phOutput:
-            raise RuntimeError("[Error] Output node is invalid !")
-        self.inputnode = inputnode
+            raise RuntimeError("[Error] 'outputnode' should be phOutput object !")
+        self.inputnodes = inputnodes
         self.outputnode = outputnode
-        self.archive = {}
-        # check inputnode -> outputnode
-        tmp = self.inputnode
-        number = 0
-        while tmp != self.outputnode:
-            # get rid of repeating name
-            i = 1
-            tmp_name = tmp.name
-            while tmp_name in self.archive.keys():
-                tmp_name = tmp.name + "_%d" % i
-                i += 1
-            self.archive[tmp_name] = number
-            tmp.rename(tmp_name)
-            number += 1
+        self.node_reg = {}
+        # multi-input case
+        # check inputnodes -> outputnode
+        # judge loop
+        stack = []
+        loop_path = []
+        father = {}
+        one_path_end = False
+        for tmp in self.inputnodes:
+            stack.append(tmp)
+            self.node_reg[tmp.id] = 1
+        while len(stack) > 0:
+            tmp = stack.pop(-1)
+            # update loop path
+            if one_path_end:
+                if tmp.id in father.keys():
+                    tmp_father = father[tmp.id]
+                    if tmp_father.id in loop_path:
+                        inx = loop_path.index(tmp_father.id)
+                        loop_path = loop_path[:inx+1]
+                    else:
+                        loop_path.clear()
+                else:
+                    loop_path.clear()
+                one_path_end = False
+            # judge loop
+            if tmp.id in loop_path:
+                raise RuntimeError("[Error] Loop detected in your model !")
+            else:
+                loop_path.append(tmp.id)
             # get children
-            tmp = tmp.children
-            if tmp is None:
+            if not tmp.has_children() and tmp != self.outputnode:
                 raise RuntimeError("[Error] Cannot move from input node to output node !")
-        self.archive[self.outputnode.name] = number
+            else:
+                # push children into stack
+                for child in tmp.children:
+                    stack.append(child)
+                    father[child.id] = tmp
+                    self.node_reg[child.id] = 1
+                # set flag when meet outputnode
+                if tmp == self.outputnode:
+                    one_path_end = True
+                else:
+                    one_path_end = False
 
-    def load_model(self, model_file, change_dataset = None):
-        # load model from json file
-        # only support 1 input node with 1 output node
+
+    def load_model(self, model_file, reload_dataset = None, read_data = True):
+        '''
+        load model from json file
+        support multiple input node with 1 output node
+        reload_dataset = {id : {"pattern_path" : xxx, ...}, ...}
+        '''
         print("\nLoading model from file '%s' ..." % model_file)
         with open(model_file, "r") as fp:
-            input_info, info = json.load(fp)
-        if "pattern" not in input_info["config_dict"].keys():
-            if change_dataset is None or "pattern_path" not in change_dataset.keys():
-                raise ValueError("[Error] Your loaded model is a skeleton model, I need 'pattern_path' in 'change_dataset' parameter !")
-        if type(change_dataset) == dict:
-            for k, v in change_dataset.items():
-                input_info["config_dict"][k] = v
+            skeleton, input_node_id, model_set = json.load(fp)
+        if skeleton:
+            if reload_dataset is None:
+                raise ValueError("[Error] Your loaded model is a skeleton model, 'change_dataset' is required !")
+        if reload_dataset is not None:
+            for id, dataset in reload_dataset.items():
+                if id not in input_node_id:
+                    raise RuntimeError("[Error] The 'id' in reload_dataset should be an inputnode id !")
+                if "pattern_path" not in dataset.keys():
+                    raise RuntimeError("[Error] The data in reload_dataset must contain 'pattern_path' item !")
+                for k, v in dataset.items():
+                    model_set[str(id)]["parameters"]["config_dict"][k] = v
+                    if skeleton is False and read_data is True:
+                        kk = k.split("_")[0]
+                        model_set[str(id)]["parameters"]["data_reload"].pop(kk)
         # get input/output node
-        inputnode = models.phInput(input_info["config_dict"], input_info["name"])
+        register = {}   # new node need to register
+        id_map = {}     # {id_in_new_model : id_in_old_model, ...}
+        inputnodes = []
+        for old_id in input_node_id:
+            if skeleton is False and read_data is False:
+                model_set[str(old_id)]["parameters"]["data_reload"].clear()
+            new_node = models.phInput(**model_set[str(old_id)]["parameters"])
+            inputnodes.append(new_node)
+            register[old_id] = new_node
+            id_map[new_node.id] = old_id
         # get all other nodes
-        outputnode = inputnode
-        children = input_info["children"]
-        while children is not None:
-            ch_info = info[children]
-            thisclass = models.get_model_from_classname(ch_info["classname"])
-            outputnode = thisclass(**ch_info["parameters"]).after(outputnode)
-            children = ch_info["children"]
-        self.__compile(inputnode, outputnode)
+        stack = []
+        outputnode = None
+        for tmp in inputnodes:
+            stack.append(tmp)
+        while len(stack) > 0:
+            this_node = stack.pop(-1)
+            this_info = model_set[str(id_map[this_node.id])]
+            if this_info["classname"] == models.phOutput.__name__:
+                outputnode = this_node
+            for child_id in this_info["children"]:
+                if child_id in register.keys():
+                    register[child_id] = register[child_id].after(this_node)
+                    continue
+                ch_info = model_set[str(child_id)]
+                thisclass = models.get_model_from_classname(ch_info["classname"])
+                ch_node = thisclass(**ch_info["parameters"]).after(this_node)
+                stack.append(ch_node)
+                register[child_id] = ch_node
+                id_map[ch_node.id] = child_id
+        # compile
+        self.__compile(inputnodes, outputnode)
         print("Done.")
+
 
     def dump_model(self, model_file, skeleton = False):
         if rank != 0:
             return
         # save this model to a json file
-        # only support 1 input node with 1 output node, linear structure
-        input_info = {"config_dict" : None, "name" : None, "children" : 0}
-        info = [None] * (len(self.archive.keys())-1)
-        # input node
-        input_info["name"] = self.inputnode.name
-        input_info["config_dict"] = self.inputnode.config_dict.copy()
-        if not skeleton:
-            input_info["config_dict"]["pattern"] = np.load(input_info["config_dict"]["pattern_path"]).tolist()
-            if input_info["config_dict"]["mask_path"] is not None:
-                input_info["config_dict"]["mask"] = np.load(input_info["config_dict"]["mask_path"]).tolist()
-            if input_info["config_dict"]["initial_model"] is not None:
-                input_info["config_dict"]["initial"] = np.load(input_info["config_dict"]["initial_model"]).tolist()
-        input_info["config_dict"]["pattern_path"] = None
-        input_info["config_dict"]["mask_path"] = None
-        input_info["config_dict"]["initial_model"] = None
-        # other nodes
-        tmp = self.inputnode
-        while True:
-            tmp = tmp.children
-            # if there are multiple inputnodes, the "index" should be changed
-            index = self.archive[tmp.name] - 1 # - len(input_info)
-            this_info = {"parameters" : tmp.config_bk, \
-                        "classname" : tmp.__class__.__name__, \
-                        "children" : None}
-            tmp_ch = tmp.children
-            if tmp_ch is None:
-                info[index] = this_info
-                break
-            else:
-                this_info["children"] = self.archive[tmp_ch.name] - 1 # - len(input_info)
-                info[index] = this_info
+        # only support multiple input node with 1 output node, loop is not allowed
+        model_set = {}
+        input_node_id = []
+        # all nodes
+        stack = []
+        register = self.node_reg.copy()
+        # start iteration
+        for tmp in self.inputnodes:
+            stack.append(tmp)
+        while len(stack) > 0:
+            tmp = stack.pop(-1)
+            if tmp.id in register.keys():
+                this_info = {"parameters" : tmp.config_bk, \
+                            "classname" : tmp.__class__.__name__, \
+                            "children" : []}
+                # push children
+                for child in tmp.children:
+                    stack.append(child)
+                    this_info["children"].append(child.id)
+                # if this is a input node
+                if tmp in self.inputnodes:
+                    input_node_id.append(tmp.id)
+                    if skeleton is False:
+                        this_info["parameters"]["data_reload"] = \
+                        {
+                            "pattern" : np.load(tmp.config_bk["config_dict"]["pattern_path"]).tolist(), \
+                            "mask" : None, \
+                            "initial" : None \
+                        }
+                        if tmp.config_bk["config_dict"]["mask_path"] is not None:
+                            this_info["parameters"]["data_reload"]["mask"] = \
+                                np.load(tmp.config_bk["config_dict"]["mask_path"]).astype(int).tolist()
+                        if tmp.config_bk["config_dict"]["initial_model"] is not None:
+                            this_info["parameters"]["data_reload"]["initial"] = \
+                                np.load(tmp.config_bk["config_dict"]["initial_model"]).tolist()
+                    # the data paths in this model will not be transferred to the new one
+                    this_info["parameters"]["config_dict"]["pattern_path"] = None
+                    this_info["parameters"]["config_dict"]["mask_path"] = None
+                    this_info["parameters"]["config_dict"]["initial_model"] = None
+                # fill in model set
+                model_set[tmp.id] = this_info
+                # del tmp from register
+                register.pop(tmp.id)
         with open(model_file, "w") as fp:
-            json.dump([input_info, info], fp)
+            json.dump([skeleton, input_node_id, model_set], fp)
         print("\nDump model to %s." % model_file)
 
     def run(self, repeat = 1):
         datapack = None
-
+        stack = []
+        datapack_buff = {}
         # repeats
         for j in range(repeat):
-            if rank == 0 : print("\n >>> Rank 0 phasing repeat No.%d" % (j+1))
-            this_node = self.inputnode
-            # for single child node
-            while this_node is not None:
+            if rank == 0 : print("\n>>> Rank 0 phasing repeat No.%d" % (j+1))
+            # for mulit-child node, use a stack
+            stack.clear()
+            datapack_buff.clear()
+            datapack = None
+            for tmp in self.inputnodes:
+                stack.append(tmp)
+            while len(stack) > 0 :
+                this_node = stack.pop(-1)
+                if this_node.id in datapack_buff.keys():
+                    datapack = datapack_buff.pop(this_node.id)
+                this_node.set_repeat(j)
                 datapack = this_node.run(datapack)
-                this_node = this_node.children
+                if datapack is not None:
+                    # not a phMerge node
+                    children_num = len(this_node.children)
+                    for i,tmp in enumerate(this_node.children):
+                        stack.append(tmp)
+                        if i + 1 < children_num:
+                            datapack_buff[tmp.id] = datapack.copy()
         # merge this rank
         out = self.outputnode.merge()
 
         if msize == 1:
             out["diffraction_amp"] = datapack.copy_diff_amp()
-            print("Finished.")
+            print(">>> Finished.\n")
             return out
 
         # mpi reduce
@@ -147,7 +238,7 @@ class Runner():
             out["eMod"] = eMod
             out["eCon"] = eCon
             out["diffraction_amp"] = datapack.copy_diff_amp()
-            print("Finished.")
+            print(">>> Finished.\n")
             return out
         else:
             return None
@@ -174,8 +265,8 @@ class Runner():
         sr = np.abs(np.fft.fftshift(out['sample_ret']))
         dr = np.abs(np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(sr))))
         d = np.abs(np.fft.fftshift(out['diffraction_amp']))
-        eCon = out['eCon']
-        eMod = out['eMod']
+        eCon = np.concatenate(out['eCon'])
+        eMod = np.concatenate(out['eMod'])
         plt.figure(figsize=(20,10))
 
         plt.subplot(2,3,1)

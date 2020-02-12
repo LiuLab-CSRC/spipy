@@ -20,22 +20,33 @@ class phOutput(PhModel):
         self.backgrounds = []
         self.sample_rets = []
         self.supports = []
-        self.eMods = []
-        self.eCons = []
+        self.eMods = {}  # {repeat_0:[[...], [...], ...], ...}
+        self.eCons = {}  # same with eMods
+        self.stream_path = []
         self.output = {}
-        # config dict
-        self.config_bk = {"name" : self.name}
+        # no config dict
+
+    def __add_child(self, childobj):
+        raise RuntimeError("[Error] phOutput node cannot have children !")
 
     def run(self, datapack):
         # append solutions of this rank
         if datapack.background is None:
             self.backgrounds.append(0)
         else:
-            self.backgrounds.append(datapack.background)
-        self.sample_rets.append(datapack.sample_ret)
-        self.supports.append(datapack.support)
-        self.eMods.append(datapack.err_mod)
-        self.eCons.append(datapack.err_con)
+            self.backgrounds.append(datapack.background.copy())
+        self.sample_rets.append(datapack.sample_ret.copy())
+        self.supports.append(datapack.support.copy())
+        # deal with eMods and eCons
+        if self.repeat_id not in self.eMods.keys():
+            self.eMods[self.repeat_id] = datapack.err_mod
+            self.eCons[self.repeat_id] = datapack.err_con
+        else:
+            self.eMods[self.repeat_id].extend(datapack.err_mod)
+            self.eCons[self.repeat_id].extend(datapack.err_con)
+        # deal with stream_path
+        if self.repeat_id == 0:
+            self.stream_path.extend(datapack.stream_path)
         return datapack
 
     def merge(self):
@@ -51,6 +62,21 @@ class phOutput(PhModel):
         self.output['support'] = this_support
         self.output['PRTF'] = PRTF
         self.output['background'] = this_background
-        self.output['eMod'] = np.mean(self.eMods,axis=0)
-        self.output['eCon'] = np.mean(self.eCons,axis=0)
+        self.output['eMod'] = []
+        self.output['eCon'] = []
+        self.output['stream_path'] = []
+        # deal with eCons and eMods and stream path
+        for emod in self.eMods.values():
+            if len(self.output['eMod']) == 0:
+                self.output['eMod'] = emod
+            else:
+                for i, part in enumerate(emod):
+                    self.output['eMod'][i] = np.array(part) + np.array(self.output['eMod'][i])
+        for econ in self.eCons.values():
+            if len(self.output['eCon']) == 0:
+                self.output['eCon'] = econ
+            else:
+                for i, part in enumerate(econ):
+                    self.output['eCon'][i] = np.array(part) + np.array(self.output['eCon'][i])
+        self.output['stream_path'] = self.stream_path.copy()
         return self.output
