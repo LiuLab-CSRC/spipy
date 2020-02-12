@@ -1,3 +1,1 @@
-For most codes in template_2d and template_3d, Copyright is from European XFEL and DESY group
-
-Modified and interfaced by YC SHI, Beijing Computational Science Research Center
+The codes in template_2d and template_3d are under support of European XFEL and DESY group. Modified and interfaced by YC SHI, Beijing Computational Science Research Center. Now they are deprecated and we strongly suggest using Phase Retrieval Network Framework to do your phasing (phmodel.py and phexec.py).
