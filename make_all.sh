@@ -243,7 +243,7 @@ if [ -f "$INFO" ]; then
 fi
 touch $INFO
 # version
-echo "VERSION = 3.0" >> $INFO
+echo "VERSION = 3.1" >> $INFO
 # mympirun
 if [ $SKIP_COMPILE -eq 0 ]; then
 	echo "EMC_MPI = '$mympirun'" >> $INFO

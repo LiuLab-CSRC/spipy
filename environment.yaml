@@ -1,16 +1,15 @@
 channels:
   - defaults
   - conda-forge
-  - anaconda
 dependencies:
-  - conda=4.7.12
+  - conda=4.8.2
   - python=3.7.4
   - configparser=3.7.4
   - h5py=2.9.0
   - ipython=7.8.0
   - matplotlib=3.1.1
-  - mpi4py=3.0.2
-  - openmpi=4.0.1
+  - mpi4py=3.0.3
+  - openmpi=4.0.2
   - numexpr=2.7.0
   - numpy=1.17.2
   - pip=19.2.3

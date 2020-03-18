@@ -4,20 +4,30 @@ import numpy as np
 import os
 import json
 
-from mpi4py import MPI
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
-msize = comm.Get_size()
 
 class Runner():
 
-    def __init__(self, inputnodes = None, outputnode = None, loadfile = None, reload_dataset = None):
+    def __init__(self, inputnodes = None, outputnode = None, loadfile = None, reload_dataset = None, comm = None):
         if inputnodes is not None and outputnode is not None:
             self.__compile(inputnodes, outputnode)
         elif os.path.isfile(loadfile):
             self.load_model(loadfile, reload_dataset)
         else:
             raise RuntimeError("[Error] Initiation needs some input !")
+
+        self.comm = comm
+        if comm is not None:
+            self.rank = comm.Get_rank()
+            self.msize = comm.Get_size()
+        else:
+            self.rank = 0
+            self.msize = 1
+
+    def __list_concat(self, list_of_list):
+        re = []
+        for alist in list_of_list:
+            re.extend(alist)
+        return re
 
     def __compile(self, inputnodes, outputnode):
         if type(inputnodes) != list:
@@ -62,7 +72,7 @@ class Runner():
                 loop_path.append(tmp.id)
             # get children
             if not tmp.has_children() and tmp != self.outputnode:
-                raise RuntimeError("[Error] Cannot move from input node to output node !")
+                raise RuntimeError("[Error] Cannot move from input node to output node ! %s-%d" % (tmp.name, tmp.id))
             else:
                 # push children into stack
                 for child in tmp.children:
@@ -136,7 +146,7 @@ class Runner():
 
 
     def dump_model(self, model_file, skeleton = False):
-        if rank != 0:
+        if self.rank != 0:
             return
         # save this model to a json file
         # only support multiple input node with 1 output node, loop is not allowed
@@ -187,12 +197,13 @@ class Runner():
         print("\nDump model to %s." % model_file)
 
     def run(self, repeat = 1):
+        import matplotlib.pyplot as plt
         datapack = None
         stack = []
         datapack_buff = {}
         # repeats
         for j in range(repeat):
-            if rank == 0 : print("\n>>> Rank 0 phasing repeat No.%d" % (j+1))
+            if self.rank == 0 : print("\n>>> Rank 0 phasing repeat No.%d" % (j+1))
             # for mulit-child node, use a stack
             stack.clear()
             datapack_buff.clear()
@@ -204,7 +215,7 @@ class Runner():
                 if this_node.id in datapack_buff.keys():
                     datapack = datapack_buff.pop(this_node.id)
                 this_node.set_repeat(j)
-                datapack = this_node.run(datapack)
+                datapack = this_node.run(datapack, rank=self.rank)
                 if datapack is not None:
                     # not a phMerge node
                     children_num = len(this_node.children)
@@ -213,35 +224,38 @@ class Runner():
                         if i + 1 < children_num:
                             datapack_buff[tmp.id] = datapack.copy()
         # merge this rank
-        out = self.outputnode.merge()
+        out = self.outputnode.merge(self.msize)
 
-        if msize == 1:
+        if self.msize == 1:
             out["diffraction_amp"] = datapack.copy_diff_amp()
+            out["eMod"] = np.array(self.__list_concat(out["eMod"]))
+            out["eCon"] = np.array(self.__list_concat(out["eCon"]))
             print(">>> Finished.\n")
             return out
 
-        # mpi reduce
-        comm.Barrier()
-        out_all = comm.gather(out, root = 0)
-
-        if rank == 0:
-            sample_ret, _ = model_merge.merge_sols(np.array([tmp["sample_ret"] for tmp in out_all]))
-            support, _ = model_merge.merge_sols(np.array([tmp["support"] for tmp in out_all]), True)
-            PRTF = np.abs(np.mean(np.array([tmp["PRTF"] for tmp in out_all]), axis=0))
-            background = np.mean(np.array([tmp["background"] for tmp in out_all]), axis=0)
-            eMod = np.mean(np.array([tmp["eMod"] for tmp in out_all]), axis=0)
-            eCon = np.mean(np.array([tmp["eCon"] for tmp in out_all]), axis=0)
-            out["sample_ret"] = sample_ret
-            out["support"] = support
-            out["PRTF"] = PRTF
-            out["background"] = background
-            out["eMod"] = eMod
-            out["eCon"] = eCon
-            out["diffraction_amp"] = datapack.copy_diff_amp()
-            print(">>> Finished.\n")
-            return out
         else:
-            return None
+            # mpi reduce
+            self.comm.Barrier()
+            out_all = self.comm.gather(out, root = 0)
+
+            if self.rank == 0:
+                sample_ret, _ = model_merge.merge_sols(np.array([tmp["sample_ret"] for tmp in out_all]))
+                support, _ = model_merge.merge_sols(np.array([tmp["support"] for tmp in out_all]), True)
+                PRTF = np.abs(np.mean(np.array([tmp["PRTF"] for tmp in out_all]), axis=0))
+                background = np.mean(np.array([tmp["background"] for tmp in out_all]), axis=0)
+                eMod = np.mean(np.array([self.__list_concat(tmp["eMod"]) for tmp in out_all]), axis=0)
+                eCon = np.mean(np.array([self.__list_concat(tmp["eCon"]) for tmp in out_all]), axis=0)
+                out["sample_ret"] = sample_ret
+                out["support"] = support
+                out["PRTF"] = PRTF
+                out["background"] = background
+                out["eMod"] = eMod
+                out["eCon"] = eCon
+                out["diffraction_amp"] = datapack.copy_diff_amp()
+                print(">>> Finished.\n")
+                return out
+            else:
+                return None
 
     def save_h5(self, out, save_file):
         import h5py
@@ -263,10 +277,10 @@ class Runner():
         size = prtf.shape
         prtf_rav = radp.radial_profile(prtf,np.array(size)//2)
         sr = np.abs(np.fft.fftshift(out['sample_ret']))
-        dr = np.abs(np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(sr))))
+        dr = np.abs(np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(sr))))**2
         d = np.abs(np.fft.fftshift(out['diffraction_amp']))
-        eCon = np.concatenate(out['eCon'])
-        eMod = np.concatenate(out['eMod'])
+        eCon = out['eCon']
+        eMod = out['eMod']
         plt.figure(figsize=(20,10))
 
         plt.subplot(2,3,1)

@@ -34,10 +34,14 @@ class streamData(object):
         new_stream.stream_path = self.stream_path.copy()
         new_stream.err_mod = self.err_mod.copy()
         new_stream.err_con = self.err_con.copy()
+        new_stream.support = self.support.copy()
         return new_stream
 
     def copy_sample(self):
         return self.sample_ret.copy()
+
+    def copy_support(self):
+        return self.support.copy()
 
     def copy_diff_amp(self):
         return self.diffraction_amp.copy()
@@ -216,6 +220,8 @@ class PhModel(object):
         sys.stdout.write(text)
         sys.stdout.flush()
 
-    def run(self, datapack):
+    def run(self, datapack, rank=0):
         # re-write this function
         return datapack
+
+

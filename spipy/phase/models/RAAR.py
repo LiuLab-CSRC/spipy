@@ -2,9 +2,6 @@ import numpy as np
 from .model_interface import PhModel
 from . import model_utils
 
-from mpi4py import MPI
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
 
 class RAAR(PhModel):
 
@@ -27,7 +24,7 @@ class RAAR(PhModel):
         self.config_bk["support_size"] = self.sup_size
         self.config_bk["beta"] = self.beta
 
-    def run(self, datapack):
+    def run(self, datapack, rank=0):
         err_con = []
         err_mod = []
         node = datapack.dump_node()

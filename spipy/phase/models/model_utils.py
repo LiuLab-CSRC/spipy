@@ -13,7 +13,7 @@ def make_holes(shape, center, rad):
 def choose_N_highest_pixels(array, N, tol = 1.0e-5, maxIters=1000, support=None):
     '''
     Use bisection to find the root of
-    e(x) = \sum_i (array_i > x) - N
+    e(x) = sum_i (array_i > x) - N
     then return (array_i > x) a boolean mask
     This is faster than using percentile (surprising)
     If support is not None then values outside the support
@@ -78,7 +78,7 @@ def radial_symetry(background, rs = None, is_fft_shifted = True):
     return background, rs, r_av
 
 
-def __support_projection(sample_ret, fixed_support, support_size, background = None, bg_av = None, radial_s = None):
+def __support_projection(sample_ret, fixed_support, support_size, background = None, radial_s = None):
     '''
         sample_ret is retrieved sample pattern
         fixed_support is fixed support 2d array
@@ -95,9 +95,9 @@ def __support_projection(sample_ret, fixed_support, support_size, background = N
 
 
 def support_projection(Data, support_size, radial_s):
-    Data.sample_ret, Data.background, radial_s, Data.background_av, Data.support = __support_projection\
+    Data.sample_ret, Data.background, radial_s_, Data.background_av, Data.support = __support_projection\
         (Data.sample_ret, Data.init_support, support_size, Data.background, radial_s)
-    return radial_s
+    return radial_s_
 
 ########
 # important
@@ -151,3 +151,4 @@ def module_projection_node(Datapack, node, epsilon = 1e-10):
             __module_projection(Datapack.diffraction_amp, node_.data['sample_ret'], \
             None, Datapack.good_pixel, epsilon)
     return node_
+

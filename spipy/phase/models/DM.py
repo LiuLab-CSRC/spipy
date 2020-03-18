@@ -2,10 +2,6 @@ import numpy as np
 from .model_interface import PhModel
 from . import model_utils
 
-from mpi4py import MPI
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
-
 
 class DM(PhModel):
 
@@ -26,7 +22,7 @@ class DM(PhModel):
         self.config_bk["iteration"] = self.iteration
         self.config_bk["support_size"] = self.sup_size
 
-    def run(self, datapack):
+    def run(self, datapack, rank=0):
         err_con = []
         err_mod = []
         node_0 = datapack.dump_node()
@@ -42,7 +38,7 @@ class DM(PhModel):
             node_sup, self.radial_s, self.bg_av, self.support = model_utils.support_projection_node\
                                                     (datapack, node_0, self.sup_size, self.radial_s)
 
-            eCon = datapack.calc_eCon(sample_ret_0, node_0)
+            eCon = datapack.calc_eCon(sample_ret_0, node_sup)
             eMod = datapack.calc_eMod(node_sup)
             err_con.append(eCon)
             err_mod.append(eMod)

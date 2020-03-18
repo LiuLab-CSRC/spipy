@@ -2,10 +2,6 @@ import numpy as np
 from .model_interface import PhModel, streamData
 from . import model_utils
 
-from mpi4py import MPI
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
-
 
 class phInput(PhModel):
 
@@ -29,7 +25,7 @@ class phInput(PhModel):
     def after(self, fatherobj):
         raise RuntimeError("phInput node doesn't have father !")
 
-    def run(self, datapack=None):
+    def run(self, datapack=None, rank=0):
         '''config_dict = 
             { 
             "pattern_path" : xxx.npy,
@@ -90,6 +86,12 @@ class phInput(PhModel):
             hole2 = model_utils.make_holes(pattern.shape, center, self.config_dict['edge_mask'][1])
             hole = hole2 & (~hole1)
             good_pixel = good_pixel & (~hole)
+        # edge remove
+        if self.config_dict['edge_remove'] is not None:
+            hole1 = model_utils.make_holes(pattern.shape, center, self.config_dict['edge_remove'][0])
+            hole2 = model_utils.make_holes(pattern.shape, center, self.config_dict['edge_remove'][1])
+            hole = hole2 & (~hole1)
+            pattern *= (~hole)
         # fixed support
         if self.config_dict['fixed_support_r'] is not None and self.config_dict['fixed_support_r']>0:
             fixed_support = model_utils.make_holes(pattern.shape, center, self.config_dict['fixed_support_r'])

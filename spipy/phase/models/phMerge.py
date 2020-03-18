@@ -2,10 +2,6 @@ import numpy as np
 from .model_interface import PhModel, streamData
 from . import model_utils, model_merge
 
-from mpi4py import MPI
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
-
 
 class phMerge(PhModel):
 
@@ -24,13 +20,8 @@ class phMerge(PhModel):
             name = str(name)
         super().__init__(name)
         # no config dict
-    '''
-    def after(self, fatherobj):
-        fatherobj.__add_child(self)
-        self.father_num += 1
-        return self
-    '''
-    def run(self, datapack):
+
+    def run(self, datapack, rank=0):
         # append solutions of this rank
         if datapack.background is None:
             self.backgrounds.append(0)

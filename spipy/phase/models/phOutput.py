@@ -2,11 +2,6 @@ import numpy as np
 from .model_interface import PhModel, streamData
 from . import model_utils, model_merge
 
-from mpi4py import MPI
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
-msize = comm.Get_size()
-
 
 class phOutput(PhModel):
 
@@ -29,7 +24,7 @@ class phOutput(PhModel):
     def __add_child(self, childobj):
         raise RuntimeError("[Error] phOutput node cannot have children !")
 
-    def run(self, datapack):
+    def run(self, datapack, rank=0):
         # append solutions of this rank
         if datapack.background is None:
             self.backgrounds.append(0)
@@ -49,7 +44,7 @@ class phOutput(PhModel):
             self.stream_path.extend(datapack.stream_path)
         return datapack
 
-    def merge(self):
+    def merge(self, msize=1):
         # merge solutions of this rank, N repeats
         if msize == 1:
             silence = False

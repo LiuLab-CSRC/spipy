@@ -5,6 +5,7 @@ from .RAAR import RAAR
 from .HIO import HIO
 from .phOutput import phOutput
 from .phMerge import phMerge
+from .HPR import HPR
 
 def get_model_from_classname(class_name):
 	if class_name == phInput.__name__:
@@ -21,5 +22,7 @@ def get_model_from_classname(class_name):
 		return HIO
 	elif class_name == phMerge.__name__:
 		return phMerge
+	elif class_name == HPR.__name__:
+		return HPR
 	else:
 		raise ValueError("class name error !")

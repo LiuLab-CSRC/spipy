@@ -103,6 +103,8 @@ def make_input(args_config):
             raise RuntimeError('Cannot open your input initial model file')
         if len(solid_known.shape)!=2:
             raise RuntimeError('Inital model should be a 2-dimension matrix')
+        if params['input']['padd_to_pow2'] is True:
+            solid_known = zero_pad.zero_pad_to_nearest_pow2(solid_known)
     else:
         solid_known = None
 

@@ -9,7 +9,6 @@ def help(module):
 	if module=="cluster_fSpec":
 		print("This function is used to do single-nonsingle hits clustering using linear/non-linear decomposition and spectural clustering")
 		print("    -> Input: dataset (numpy.ndarray, shape=(Nd,Nx,Ny)")
-		print("      option: mask ( 0/1 binary pattern, shape=(Nx, Ny), 1 means masked area, 0 means open area, default=None)")
 		print("      option: low_filter (float 0~1, the percent of area at the frequency center that is used\
 							 for clustering, default=0.3)")
 		print("      option: decomposition (str, decoposition method, choosen from 'LLE', 'SVD' and 'SpecEM'\
@@ -29,7 +28,6 @@ You can split the original dataset into several parts and use multi-processors t
 	elif module=="cluster_fTSNE":
 		print("This function is used to do single-nonsingle patterns clustering using TSNE and kmeans")
 		print("    -> Input: dataset (numpy.ndarray, shape=(Nd,Nx,Ny)")
-		print("      option: mask ( 0/1 binary pattern, shape=(Nx, Ny), 1 means masked area, 0 means open area, default=None)")
 		print("      option: low_filter (float 0~1, the percent of area at the frequency center that is used for clustering, default=0.3)")
 		print("      option (TSNE): no_dims (+int, dimensions after decomposition, default=2)")
 		print("      option (TSNE): perplexity (+int, perlexity value to evaluate P(i|j) in TSNE, default=20)")
@@ -46,10 +44,18 @@ You can split the original dataset into several parts and use multi-processors t
 You can split the original dataset into several parts and use multi-processors to deal with them.")
 		print("Help End. Exit.")
 		return
+	elif module=="diffusion_map":
+		print("This function is used to do Diffusion Map embedding and get features")
+		print("    -> Input: dataset (numpy.ndarray, shape=(Nd,Nx,Ny) or (Nd,Npix)")
+		print("              nEigs (positive int, number of dimensions to be left on eigenvectors)")
+		print("      option: neigh_kept (int, number of nearest neighbors to be kept in D [distance] matrix, default=100)")
+		print("      option: sigma_opt (float, kernel matrix K=exp(-D/mean(D)/sigma_opt), try 0.1~100, default=1)")
+		print("      option: alpha (float, adjustment factor on kernel matrix, default=1)")
+		print("    -> Return: list, [eigenvalue, eigenvector], eigenvalue is a (nEigs,) ndarray, eigenvector is a (Nd,nEigs) ndarray")
 	else:
 		raise ValueError("No module names "+str(module))
 
-def cluster_fSpec(dataset, mask=None ,low_filter=0.3, decomposition='SVD', ncomponent=2, nneighbors=10, LLEmethod='standard', clustering=2, njobs=1, verbose=True):
+def cluster_fSpec(dataset, low_filter=0.3, decomposition='SVD', ncomponent=2, nneighbors=10, LLEmethod='standard', clustering=2, njobs=1, verbose=True):
 	if decomposition not in ['LLE', 'SVD', 'SpecEM']:
 		raise RuntimeError("I can't recognize the decomposition method.")
 	if decomposition=="LLE" and LLEmethod not in ['standard', 'modified', 'hessian','ltsa']:
@@ -79,16 +85,12 @@ def cluster_fSpec(dataset, mask=None ,low_filter=0.3, decomposition='SVD', ncomp
 	# normalization
 	center_data = (fdataset.shape[1]//2, fdataset.shape[2]//2)
 	fdataset = fdataset[:, center_data[0]-rcenter[0]:center_data[0]+rcenter[0], center_data[1]-rcenter[1]:center_data[1]+rcenter[1]]
-	if mask is not None:
-		fmask = mask[center_data[0]-rcenter[0]:center_data[0]+rcenter[0], center_data[1]-rcenter[1]:center_data[1]+rcenter[1]]
-	else:
-		fmask = None
 	center_data = (fdataset.shape[1]//2, fdataset.shape[2]//2)
 	saxs_data = saxs.cal_saxs(fdataset)
-	saxs_intens = radp.radial_profile(saxs_data, center_data, fmask)
+	saxs_intens = radp.radial_profile(saxs_data, center_data, None)
 	dataset_norm = np.zeros(fdataset.shape)
 	for ind,pat in enumerate(fdataset):
-		pat_normed = radp.radp_norm(saxs_intens[:,1], pat, center_data, fmask)
+		pat_normed = radp.radp_norm(saxs_intens[:,1], pat, center_data, None)
 		dataset_norm[ind] = pat_normed
 		if verbose:
 			sys.stdout.write("Processing " + str(ind) + "/" + str(len(fdataset)) + " ...\r")
@@ -122,7 +124,7 @@ def cluster_fSpec(dataset, mask=None ,low_filter=0.3, decomposition='SVD', ncomp
 		return dataset_decomp,[]
 
 
-def cluster_fTSNE(dataset, mask=None, low_filter=0.3, no_dims=2, perplexity=20, use_pca=True, initial_dims=50, max_iter=500, theta=0.5, randseed=-1, clustering=2, njobs=1, verbose=True):
+def cluster_fTSNE(dataset, low_filter=0.3, no_dims=2, perplexity=20, use_pca=True, initial_dims=50, max_iter=500, theta=0.5, randseed=-1, clustering=2, njobs=1, verbose=True):
 	
 	from sklearn.decomposition import PCA
 	sys.path.append(os.path.join(os.path.dirname(__file__),'bhtsne_source'))
@@ -152,16 +154,12 @@ def cluster_fTSNE(dataset, mask=None, low_filter=0.3, no_dims=2, perplexity=20, 
 	# normalization
 	center_data = (fdataset.shape[1]//2, fdataset.shape[2]//2)
 	fdataset = fdataset[:, center_data[0]-rcenter[0]:center_data[0]+rcenter[0], center_data[1]-rcenter[1]:center_data[1]+rcenter[1]]
-	if mask is not None:
-		fmask = mask[center_data[0]-rcenter[0]:center_data[0]+rcenter[0], center_data[1]-rcenter[1]:center_data[1]+rcenter[1]]
-	else:
-		fmask = None
 	center_data = (fdataset.shape[1]//2, fdataset.shape[2]//2)
 	saxs_data = saxs.cal_saxs(fdataset)
-	saxs_intens = radp.radial_profile(saxs_data, center_data, fmask)
+	saxs_intens = radp.radial_profile(saxs_data, center_data, None)
 	dataset_norm = np.zeros(fdataset.shape)
 	for ind,pat in enumerate(fdataset):
-		pat_normed = radp.radp_norm(saxs_intens[:,1], pat, center_data, fmask)
+		pat_normed = radp.radp_norm(saxs_intens[:,1], pat, center_data, None)
 		dataset_norm[ind] = pat_normed
 		if verbose:
 			sys.stdout.write("Processing " + str(ind) + "/" + str(len(fdataset)) + " ...\r")
@@ -191,3 +189,57 @@ def cluster_fTSNE(dataset, mask=None, low_filter=0.3, no_dims=2, perplexity=20, 
 	else:
 		return embedding_array, []
 
+
+def diffusion_map(dataset, nEigs, neigh_kept=100, sigma_opt=1, alpha=1):
+	'''
+		dataset : (Nd,Nx,Ny) or (Nd,Np)
+	'''
+	if len(dataset.shape) not in [2,3]:
+		raise ValueError("Input dataset should be a 2 or 3-dimensional array !")
+	if neigh_kept > len(dataset):
+		raise ValueError("The neigh_kept should not be larger than data amount")
+
+	nEigs = abs(int(nEigs))
+	if len(dataset.shape) == 3:
+		X = np.matrix( dataset.reshape([dataset.shape[0],dataset.shape[1]*dataset.shape[2]]), dtype=np.float64).T # (Np, Nd)
+	else:
+		X = np.matrix(dataset).T
+
+	# calculate Dij
+	Nd = X.shape[1]
+	D = np.tile( np.sum(np.multiply(X,X), axis=0), (Nd, 1) )
+	D = D - X.T * X
+	D = D + D.T
+	D = np.abs(D + D.T) / 2
+
+	# distance function
+	mean = np.mean(D)
+	K = np.exp(-D / (mean * sigma_opt))
+	
+	# spasify
+	nneigh = int(neigh_kept)
+	largest_inx_col = np.argsort(-K, axis=1)[:, :nneigh]
+	largest_inx_row = np.tile(np.matrix(np.arange(Nd)).T, (1,nneigh))
+	tmp = np.matrix(np.zeros(K.shape))
+	tmp[largest_inx_row, largest_inx_col] = K[largest_inx_row, largest_inx_col]
+	K = np.maximum(tmp, tmp.T)
+	
+	# kernel
+	K = np.divide(K, np.sum(K,1) * np.sum(K,0))
+	K = np.power(K, alpha)
+	W = np.sum(np.array(K),axis=0)
+	W = 1 / np.sqrt(W)
+	W = np.matrix(np.diag(W))
+	L = W * K * W
+
+	# eig
+	eigval, eigvec = np.linalg.eig(L)
+	eigval = np.real(eigval)
+	eigvec = np.real(eigvec)
+	eig_inx = np.argsort(-eigval)[:nEigs+1]
+	eigval = eigval[eig_inx][1:]
+	eigvec = np.array(eigvec[:,eig_inx]).T
+	eigvec /= (eigvec[0]+1e-20) 
+	eigvec = eigvec[1:,:]
+	
+	return eigval, eigvec.T

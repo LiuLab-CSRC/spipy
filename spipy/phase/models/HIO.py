@@ -2,10 +2,6 @@ import numpy as np
 from .model_interface import PhModel, streamData
 from . import model_utils
 
-from mpi4py import MPI
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
-
 
 class HIO(PhModel):
 
@@ -28,7 +24,7 @@ class HIO(PhModel):
         self.config_bk["support_size"] = self.sup_size
         self.config_bk["gamma"] = self.gamma
 
-    def run(self, datapack):
+    def run(self, datapack, rank=0):
         err_con = []
         err_mod = []
 
@@ -43,7 +39,7 @@ class HIO(PhModel):
 
             unsup_index = np.where(datapack.support < 1)
 
-            datapack.sample_ret[unsup_index] = sample_ret_0[unsup_index] * (1 - self.gamma)
+            datapack.sample_ret[unsup_index] = (1 - self.gamma) * sample_ret_0[unsup_index] + self.gamma * datapack.sample_ret[unsup_index]
 
             eMod = datapack.calc_eMod()
             eCon = datapack.calc_eCon(sample_ret_0)
