@@ -6,7 +6,7 @@ if __name__=="__main__":
 	params_essential = {'input|shape' : '123,123', 'input|padd_to_pow2' : True, \
 		'input|inner_mask' : 5, 'input|outer_mask' : 64, \
 		'input|outer_outer_mask' : None, 'input|mask_edges' : True, \
-		'phasing|repeats' : 2, 'phasing|iters' : '200RAAR,200DM,200ERA', \
+		'phasing|repeats' : 2, 'phasing|iters' : '200RAAR 200DM 200ERA', \
 		'phasing_parameters|support_size' : 100, 'phasing_parameters|beta' : 0.8}
 	params_optional = {'input|subtract_percentile' : None, 'input|spherical_support' : 20, \
 		'phasing_parameters|background' : 'True', 'input|init_model' : None}

@@ -123,11 +123,15 @@ def phase(I, support, params, good_pix = None, sample_known = None):
             if alg == 'ERA':
                 O, info = era.ERA(I, iters, **params['phasing_parameters'])
              
-            if alg == 'DM':
+            elif alg == 'DM':
                 O, info = dm.DM(I,  iters, **params['phasing_parameters'])
 
-            if alg == 'RAAR':
+            elif alg == 'RAAR':
                 O, info = raar.RAAR(I, iters, **params['phasing_parameters'])
+
+            else:
+                raise RuntimeError("Input algorithms '%s' is invalid !" % alg)
+                MPI.Finalize()
              
             out[j]['O']           = params['phasing_parameters']['O']          = O
             out[j]['eMod']       += info['eMod']
