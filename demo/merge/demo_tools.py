@@ -7,20 +7,20 @@ import time
 
 if __name__ == '__main__':
 	
-	fpath = '../phase/3dvolume.bin'
+	fpath = '../phase/volume.npy'
 	det_size = [95,95]
 	# make mask
 	mask = np.zeros(det_size)
 	mask[46:49,:] = 1
 
 	q_coor, _, _, _ = q.ewald_mapping(581, 7.9, 0.87, det_size, None)
-	q_coor = q_coor.T.reshape((3,-1))
+	q_coor = q_coor.reshape((3,-1))
 
 	print("\n-- Generate 2000 quaternions ..")
 	quats = tools.get_quaternion(Num_level=20)[np.random.choice(16000,2000,replace=False)]
 	
 	print("\n-- Generate 2000 slices from 3D model ..")
-	model_0 = np.fromfile(fpath).reshape((125,125,125))
+	model_0 = np.load(fpath)
 	t1 = time.time()
 	slices = tools.get_slice(model=model_0, rotations=quats, det_size=det_size, \
 									det_center=None, mask=mask, slice_coor_ori=q_coor)

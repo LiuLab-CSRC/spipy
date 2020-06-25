@@ -19,18 +19,28 @@ function check_answer(){
 	done
 }
 
-root_folder=`pwd`/spipy
+function get_j(){
+	idx=0; for op in $@; do ((idx=$idx+1)); if [ x$op = x"-j" ]; then break; fi; done; ((idx=$idx+1)); j=`eval echo '$'$idx`
+}
+
+base_folder=`pwd`
+root_folder=${base_folder}/spipy
 env_name="spipy-v3"
 
 # get opts
 SKIP_COMPILE=0
-while getopts ":xh" opt; do
+SKIP_CONDAENV=0
+while getopts ":xeh" opt; do
 	case $opt in
 		x)
 			SKIP_COMPILE=1
 			;;
+		e)
+			SKIP_CONDAENV=1
+			;;
 		h)
-			echo "Use : ./make_all.sh [-x] (skip compiling MPI part)"
+			echo "Use : ./make_all.sh [-x] (Do not compile MPI C codes)"
+			echo "                    [-e] (Do not check conda environment)"
 			echo "                    [-h] (help info)"
 			exit 0
 			;;
@@ -93,13 +103,13 @@ then
 	SKIP_COMPILE=1
 fi
 
+
+# decide mpicc
 echo "==> Operating system authorized"
 if [ $SKIP_COMPILE -eq 1 ]; then
 	echo "[Info] Skip compiling merge.emc module."
 fi
 
-
-# decide mpicc
 if [ $SKIP_COMPILE -eq 0 ]; then
 	echo "==> Authorizing MPI"
 	# decide your gcc
@@ -189,27 +199,34 @@ tar -xzf merge/merge.tgz -C ./merge/
 tar -xzf phase/phase.tgz -C ./phase/
 tar -xzf simulate/simulate.tgz -C ./simulate/
 
+if [ $? -ne 0 ];then echo "Command failed. Exit"; exit 1;fi
+
 
 # check conda env
-echo "==> Checking conda environment"
+if [ $SKIP_CONDAENV -eq 0 ]; then
+	echo "==> Checking conda environment"
 
-all_envs=`conda env list | grep ${env_name}`
-if [ -z "$all_envs" ]
-then
-	echo "[Warning] The coming procedure will create a new conda environment named '${env_name}'. Continue ? (y/n)"
-	check_answer
-	if [ $? -eq 0 ]
+	all_envs=`conda env list | grep ${env_name}`
+	if [ -z "$all_envs" ]
 	then
-		exit 1
+		echo "[Warning] The coming procedure will create a new conda environment named '${env_name}'. Continue ? (y/n)"
+		check_answer
+		if [ $? -eq 0 ]
+		then
+			exit 1
+		fi
+		conda env create -f ${root_folder}/../environment.yaml -n ${env_name}
+	else
+		echo "[Info] The target conda environment '${env_name}' already exists, we will use it."
+		conda env update -f ${root_folder}/../environment.yaml -n ${env_name}
 	fi
-	conda env create -f ${root_folder}/../environment.yaml -n ${env_name}
 else
-	echo "[Info] The target conda environment '${env_name}' already exists, we will use it."
-	conda env update -f ${root_folder}/../environment.yaml -n ${env_name}
+	echo "[INFO] skip checking conda environment"
 fi
 
-# install to conda env
-# make soft link
+if [ $? -ne 0 ];then echo "Command failed. Exit"; exit 1;fi
+
+# install to conda env, make soft link
 echo "==> Install spipy to conda env"
 python_path=`find ${curr_env_path}/envs/${env_name}/lib -maxdepth 1 -name "python3.*"`
 if [ ! -d ${python_path} ]
@@ -243,11 +260,40 @@ if [ -f "$INFO" ]; then
 fi
 touch $INFO
 # version
-echo "VERSION = 3.1" >> $INFO
+echo "VERSION = 3.2" >> $INFO
 # mympirun
 if [ $SKIP_COMPILE -eq 0 ]; then
 	echo "EMC_MPI = '$mympirun'" >> $INFO
 fi
-cd $root_folder
 
+
+# generate shell files for running scripts
+echo "==> Generate execuated files"
+cd $base_folder/scripts
+if [ -d $base_folder/bin ]
+then
+	rm -rf $base_folder/bin
+fi
+mkdir $base_folder/bin
+# generate files
+env_bin_path=${curr_env_path}/envs/${env_name}/bin
+for scripts_f in `ls *.py`;
+do
+	bin_f=${base_folder}/bin/${scripts_f%.py*}
+	scripts_fn=${base_folder}/scripts/${scripts_f}
+	echo "# !/bin/bash" >> $bin_f
+	echo "" >> $bin_f
+	echo "idx=0; for op in \$@; do ((idx=\$idx+1)); if [ x\$op = x\"-j\" ]; then break; fi; done; ((idx=\$idx+1))" >> $bin_f
+	echo "" >> $bin_f
+	echo "if (( \$idx <= \$# )); then j=\`eval echo '\$'{\$idx}\`; else j=0; fi" >> $bin_f
+	echo "" >> $bin_f
+	echo "if (( \$j >= 1 )); then ${env_bin_path}/mpirun -np \$j ${env_bin_path}/python ${scripts_fn} \$@; else ${env_bin_path}/python ${scripts_fn} \$@; fi" >> $bin_f
+	chmod u+x $bin_f
+done
+
+if [ $? -ne 0 ];then echo "Command failed. Exit"; exit 1;fi
+
+
+# complete
+cd $root_folder
 echo "==> Complete!"

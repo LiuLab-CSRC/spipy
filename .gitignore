@@ -15,4 +15,5 @@ emc_MAC
 emc_LINUX
 bh_tsne
 gen_quat
+bin
 __pycache__

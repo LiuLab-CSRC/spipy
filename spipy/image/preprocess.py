@@ -112,7 +112,7 @@ def fix_artifact_auto(dataset, estimated_center, njobs=1, mask=None, vol_of_bins
 	# calculate intensity distribution
 	print("\nAnalysing spectral distribution ...")
 	num_of_bins = int(np.ceil(len(dataset)/vol_of_bins))
-	_,labels = classify.cluster_fSpec(dataset, mask, decomposition='SpecEM', ncomponent=2, clustering=num_of_bins, njobs=njobs)
+	_,labels = classify.cluster_fSpec(dataset, decomposition='SpecEM', ncomponent=2, clustering=num_of_bins, njobs=njobs)
 	# fix
 	print("\nFix artifacts ...")
 	I_prime = np.mean(dataset, axis=0)

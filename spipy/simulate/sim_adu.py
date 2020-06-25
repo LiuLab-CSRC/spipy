@@ -21,7 +21,7 @@ def help(module):
         print("     #option: euler_order (rotation order, such as 'zxz' or 'zyz'..., default='zxz')")
         print("     #option: euler_range (the range of euler angles to rotate object, numpy.array([[alpha_min,alpha_max],[beta_min,beta_max],[gamma_min,gamma_max]]), shape=(3,2)), default=None")
         print("     #option: predefined (if euler_mode is 'predefined', then you have to specify all euler angles used for object rotation, shape=(Ne,3), default=None)")
-        print("    -> NO RETURN")
+        print("    -> return: path of output HDF5 file")
     else:
         raise ValueError("No module names "+str(module))
 
@@ -461,7 +461,8 @@ def __single_process(method, pdb_file, param, euler_mode='random', euler_order='
         time_seed = time.ctime()
         time_seed = time_seed.replace(' ','_')
         time_seed = time_seed.replace(':','_')
-        savef = h5py.File(os.path.join(save_dir, 'spipy_adu_simulation_'+time_seed+'.h5'), 'w')
+        filename = os.path.join(save_dir, 'spipy_adu_simulation_'+time_seed+'.h5')
+        savef = h5py.File(filename, 'w')
         savef.create_dataset('oversampling_rate', data=dataset['oversampling_rate'])
         savef.create_dataset('rotation_order', data=dataset['rotation_order'])
         savef.create_dataset('patterns', data=dataset['patterns'], chunks=True, compression="gzip")
@@ -472,7 +473,7 @@ def __single_process(method, pdb_file, param, euler_mode='random', euler_order='
         for k, v in dataset['simu_parameters'].items():
             grp.create_dataset(k, data=v)
         savef.close()
-        return
+        return filename
     else:
         return dataset
 
@@ -487,8 +488,7 @@ def go_magic(method, save_dir, pdb_file, param, euler_mode='random', euler_order
             raise ValueError('Your save directory is invalid')
 
     if m_size == 1:
-        __single_process(method, pdb_file, param, euler_mode, euler_order, euler_range, predefined, save_dir, verbose)
-        sys.exit(0)
+        return __single_process(method, pdb_file, param, euler_mode, euler_order, euler_range, predefined, save_dir, verbose)
 
     if euler_mode=='predefined':
         num_pat = len(predefined)
@@ -575,3 +575,5 @@ def go_magic(method, save_dir, pdb_file, param, euler_mode='random', euler_order
         savef.close()
 
     MPI.Finalize()
+
+    return savefilename
