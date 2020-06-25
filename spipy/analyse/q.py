@@ -83,7 +83,7 @@ def ewald_mapping(detd, lamda, pixsize, det_size, center=None):
 	'''
 		returned :
 			q_coor     : mapped coordinates in k space, numpy.array,
-			             shape = (Nx, Ny, 3), in pixel
+			             shape = (3, Nx, Ny), in pixel
 			qmax       : float, in nm^-1
 			qmin       : float, in nm^-1
 			q_len      : side length of k space matrix, int, in pixel
