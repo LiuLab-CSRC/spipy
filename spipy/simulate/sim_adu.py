@@ -30,9 +30,10 @@ class simulation():
 
     sim_methods = ["atomic", "fft"]  # you can change name, but this first one always means atom scattering simulation
     config_param = {'detd' : 200.0, 'lambda' : 2.5, \
-                    'detsize' : 128, 'pixsize' : 0.3, \
+                    'detsize' : [128, 128], 'pixsize' : 0.3, \
                     'stoprad' : 0, 'polarization' : 'x', \
                     'num_data' : 100, 'fluence' : 1.5e14, \
+                    'adu_per_eV' : 0.001, 'detcenter' : None, \
                     'photons' : False, 'absorption' : True, \
                     'phy.scatter_factor' : True, 'phy.ram_first' : True, \
                     'phy.projection' : True }
@@ -46,19 +47,21 @@ class simulation():
     sample_size = None  # (nanometer)
     oversampl = None
     inten_correction = None # np.array, shape=(detsize,detsize)
+    scattering_cross_section = 1e-5 # the probability for a photon to be scattered
 
     def __init__(self, method="atomic"):
         self.set_method(method)
 
     def __show_info(self, kwargs):
-        det_l = self.config_param['detsize']
+        det_lx, det_ly = self.config_param['detsize']
         fmt = "%-25s: %-10s"
         print("Simulation Information :")
         print(fmt % ("PDB file", self.pdb_file))
         print(fmt % ("Method", simulation.sim_methods[self.__method]))
-        print(fmt % ("Detector Size", str((det_l,det_l))))
+        print(fmt % ("Detector Size", str((det_lx,det_ly))))
         print(fmt % ("Detector Distance (mm)", str(self.config_param['detd'])))
         print(fmt % ("Pixel Size (mm)", str(self.config_param['pixsize'])))
+        print(fmt % ("ADU per eV ", str(self.config_param['adu_per_eV'])))
         print(fmt % ("Wave Length (A)", str(self.config_param['lambda'])))
         print(fmt % ("Save Photons", str(self.config_param['photons'])))
         print(fmt % ("Polarization", self.config_param['polarization']))
@@ -80,6 +83,8 @@ class simulation():
         for key, value in param.items():
             if key in self.config_param.keys():
                 if type(value)==type(self.config_param[key]):
+                    self.config_param[key] = value
+                elif key == "detcenter" and type(value)==list:
                     self.config_param[key] = value
                 else:
                     raise ValueError("The data type of '"+key+"' in param is wrong")
@@ -112,10 +117,11 @@ class simulation():
     def cal_inten_correction(self):
         # returned correction should be multiplied to diffraction intensities
         from ..image.preprocess import cal_correction_factor
-        correction = cal_correction_factor([self.config_param['detsize'], self.config_param['detsize']], \
+        correction = cal_correction_factor([self.config_param['detsize'][0], self.config_param['detsize'][1]], \
                                             self.config_param['polarization'], \
                                             self.config_param['detd'], \
-                                            self.config_param['pixsize'])
+                                            self.config_param['pixsize'], \
+                                            self.config_param['detcenter'])
         return correction
 
     def generate_euler(self, mode='random', order='zxz', arange=None, predefined=None): 
@@ -214,10 +220,10 @@ class simulation():
         abc = np.zeros((len(abs_index), 9))
         for ind,k in enumerate(abs_index):
             abc[ind] = scatterf[str(k)]
-        gau_1 = gaussian(abc[:,0],abc[:,1],abc[:,8],q)
-        gau_2 = gaussian(abc[:,2],abc[:,3],abc[:,8],q)
-        gau_3 = gaussian(abc[:,4],abc[:,5],abc[:,8],q)
-        gau_4 = gaussian(abc[:,6],abc[:,7],abc[:,8],q)
+        gau_1 = gaussian(abc[:,0],abc[:,1],abc[:,8]/4.0,q)
+        gau_2 = gaussian(abc[:,2],abc[:,3],abc[:,8]/4.0,q)
+        gau_3 = gaussian(abc[:,4],abc[:,5],abc[:,8]/4.0,q)
+        gau_4 = gaussian(abc[:,6],abc[:,7],abc[:,8]/4.0,q)
         fq = gau_1 + gau_2 + gau_3 + gau_4
         Fq = np.zeros((np.max(abs_index)+1,np.max(abs_r)+1))
         Fq[abs_index.reshape((len(abs_index),1)),abs_r] = fq
@@ -249,14 +255,16 @@ class simulation():
 
         time0 = time.time()
         # get parameters
-        det_l = self.config_param['detsize']
+        det_lx, det_ly = self.config_param['detsize']
         det_d = np.float32(self.config_param['detd'])
         det_ps = np.float32(self.config_param['pixsize'])
         det_lambda = np.float32(self.config_param['lambda'])
         to_photons = self.config_param['photons']
+        adu_per_eV = self.config_param['adu_per_eV']
         # get pixel coordinates in k-space of our detector with rotate angle=0
-        q_coor, q_max, _, q_len = q.ewald_mapping(det_d, det_lambda, det_ps, [det_l, det_l], center=None)
-        q_coor = q_coor.reshape([3,det_l*det_l])   # shape=(3,Nq)
+        q_coor, q_max, _, q_len = q.ewald_mapping(det_d, det_lambda, det_ps, \
+                                    [det_lx, det_ly], center=self.config_param['detcenter'])
+        q_coor = q_coor.reshape([3,det_lx*det_ly])   # shape=(3,Nq)
 
         # print information
         total_num_data = comm.gather(self.config_param['num_data'], root=0)
@@ -269,6 +277,7 @@ class simulation():
                             "Num Patterns" : np.sum(total_num_data, dtype=int)}
             self.__show_info(infomation)
             print("Simulation starts ...")
+        comm.Barrier()
 
         intensity = None
         if m_rank == 0:
@@ -279,12 +288,12 @@ class simulation():
             intensity = np.abs(np.fft.fftshift(np.fft.fftn(density))) ** 2
 
         intensity = comm.bcast(intensity, root=0)
-        patterns = tools.get_slice(model=intensity, rotations=euler_angles, det_size=[det_l, det_l], \
+        patterns = tools.get_slice(model=intensity, rotations=euler_angles, det_size=[det_lx, det_ly], \
                             mask=None, slice_coor_ori=q_coor, euler_order=self.order)
-        patterns *= self.inten_correction   # patterns.shape=(num,det_l,det_l)
+        patterns *= self.inten_correction   # patterns.shape=(num,det_lx,det_ly)
         # evaluate adu and add noise
-        photons = float(self.config_param['fluence'] / 1e10)
-        adu = photons * 12398.419 / det_lambda / 1e2
+        photons = float(self.config_param['fluence']) * simulation.scattering_cross_section
+        adu = photons * 12398.419 / det_lambda * adu_per_eV
         if to_photons:
             patterns = np.random.poisson( patterns * photons / np.sum(patterns, axis=(1,2)).reshape((len(patterns),1,1)) )
         else:
@@ -305,12 +314,13 @@ class simulation():
         if self.order is None or self.atoms['index'] is None:
             raise RuntimeError('Please configure and generate euler first!')
         # get parameters
-        det_l = self.config_param['detsize']
+        det_lx, det_ly = self.config_param['detsize']
         det_d = np.float32(self.config_param['detd'])
         det_ps = np.float32(self.config_param['pixsize'])
         det_lambda = np.float32(self.config_param['lambda'])
         to_photons = self.config_param['photons']
-        sampling_len = 0.5/(q.cal_q(det_d,det_lambda,det_l/2.0,det_ps).max())   # in nm, considering Nquist sampling requirement
+        adu_per_eV = self.config_param['adu_per_eV']
+        sampling_len = 0.5/(q.cal_q(det_d,det_lambda,max(det_lx,det_ly)/2.0,det_ps).max())   # in nm, considering Nquist sampling requirement
         ati = self.atoms['index']
         ati = ati.reshape((len(ati),1))
         if self.config_param['absorption']:
@@ -319,26 +329,31 @@ class simulation():
         else:
             obs_ati = ati
         # calculate detector information
-        det_cen = (det_l-1)/2.0
-        detx, dety = np.mgrid[0:det_l,0:det_l]        # here in pixel
+        if self.config_param['detcenter'] is None:
+            det_cenx = (det_lx-1)/2.0
+            det_ceny = (det_ly-1)/2.0
+        else:
+            det_cenx, det_ceny = self.config_param['detcenter']
+        detx, dety = np.mgrid[0:det_lx,0:det_ly]        # here in pixel
         detx = detx.flatten()
         dety = dety.flatten()
         if self.config_param['phy.scatter_factor'] is True:
-            pix_r = np.sqrt((detx-det_cen)**2 + (dety-det_cen)**2).astype(int)
+            pix_r = np.sqrt((detx-det_cenx)**2 + (dety-det_ceny)**2).astype(int)
             scatt = self.get_scatt(self.atoms['index'], pix_r)  # scattering factor, shape=(max(atom_index)+1,max(pix_r)+1)
             if self.config_param['absorption']:
                 scaling_obs = obs_ati / ati
         else:
             scatt = obs_ati     # shape=(Nr,1)
-        screen_xy = np.array([detx-det_cen, dety-det_cen]).T * det_ps   # here in mm
-        screen_xyz = np.hstack([screen_xy, np.zeros((det_l**2,1))+det_d])        # here in mm
+        screen_xy = np.array([detx-det_cenx, dety-det_ceny]).T * det_ps   # here in mm
+        screen_xyz = np.hstack([screen_xy, np.zeros((det_lx*det_ly,1))+det_d])        # here in mm
         k_prime = screen_xyz/np.linalg.norm(screen_xyz,axis=1).reshape((len(screen_xyz),1)) # here no unit
         dk = (k_prime - self.k0)/det_lambda   # dk.shape=(Nk,3) the value of dk of every pixel on detector, angstrom^(-1)
 
         # print information
         total_num_data = comm.gather(self.config_param['num_data'], root=0)
         if m_rank == 0:
-            resolution = 10.0/(q.cal_q(det_d,det_lambda,det_l/np.sqrt(2),det_ps).max())
+            det_l = np.sqrt(max(det_lx-det_cenx, det_cenx)**2 + max(det_ly-det_ceny, det_ceny)**2)
+            resolution = 10.0/(q.cal_q(det_d,det_lambda,det_l,det_ps).max())
             infomation = {}
             if verbose:
                 infomation = {"Corner Resolution (A)" : "%.2f" % resolution, \
@@ -346,6 +361,7 @@ class simulation():
                             "Num Patterns" : np.sum(total_num_data, dtype=int)}
             self.__show_info(infomation)
             print("Simulation starts ...")
+        comm.Barrier()
         
         # now start loop
         for ind,euler_angle in enumerate(euler_angles):
@@ -355,9 +371,10 @@ class simulation():
             dr = self.rotate_mol(euler_angle) # dr.shape=(Nr,3) the position vector of atoms, in angstrom
             if projections is not None:
                 # toy projection of the molecule onto the xOy plane 
+                center = (np.array([det_lx, det_ly])-1)/2.0
                 dr_ = dr / (sampling_len * 10)
-                projection = np.zeros((det_l,det_l))
-                dr_projection = (np.round(dr_[:,0:2] + (det_l-1)/2.0)).astype(int)
+                projection = np.zeros((det_lx,det_ly))
+                dr_projection = np.round(dr_[:,0:2] + center).astype(int)
                 for ii, xy in enumerate(dr_projection):
                     projection[xy[0],xy[1]] += ati[ii]
                 projections[ind] = projection
@@ -392,11 +409,11 @@ class simulation():
                 if verbose: print(u"RAM (MB): ",psutil.Process(os.getpid()).memory_info().rss/1024.0**2)
                 pat = np.sum(pat,axis=0)
 
-            pat = pat.reshape((det_l, det_l))
+            pat = pat.reshape((det_lx, det_ly))
             pat = np.abs(pat)**2 * self.inten_correction
             # evaluate adu and add noise
-            photons = float(self.config_param['fluence'] / 1e10)
-            adu = photons * 12398.419 / det_lambda / 1e2
+            photons = float(self.config_param['fluence']) * simulation.scattering_cross_section
+            adu = photons * 12398.419 / det_lambda * adu_per_eV
             if to_photons:
                 patt[ind] = np.random.poisson( pat * photons/np.sum(pat) ).astype(float)
             else:
@@ -412,18 +429,18 @@ class simulation():
         from ..image import radp
 
         num_pat = self.config_param['num_data']
-        det_l = self.config_param['detsize']
+        det_lx, det_ly = self.config_param['detsize']
         bstopR = self.config_param['stoprad']
         patterns = None
 
         if self.__method == 0:
             # atomic
             if self.config_param['phy.projection']:
-                projections = np.zeros((num_pat, det_l, det_l))
+                projections = np.zeros((num_pat, det_lx, det_ly))
             else:
                 projections = None
             # generate patterns
-            patterns = np.zeros((num_pat, det_l, det_l))
+            patterns = np.zeros((num_pat, det_lx, det_ly))
             self.generate_pattern_atomic(self.euler, patterns, projections, verbose)
         else:
             # fft
@@ -520,15 +537,16 @@ def go_magic(method, save_dir, pdb_file, param, euler_mode='random', euler_order
         savef = h5py.File(savefilename, 'w')
         grp = savef.create_group('simu_parameters')
         for k, v in param.items():
-            grp.create_dataset(k, data=v)
+            if v is None: grp.create_dataset(k, data=-1)
+            else: grp.create_dataset(k, data=v)
         savef.create_dataset('patterns', (num_pat, \
-            param['detsize'], param['detsize']), \
+            param['detsize'][0], param['detsize'][1]), \
             dtype=float, chunks=True, compression="gzip")
         savef.create_dataset('euler_angles', (num_pat, 3), \
             dtype=float, chunks=True, compression="gzip")
         if method == simulation.sim_methods[0] and param["phy.projection"]:
             savef.create_dataset('projections', (num_pat, \
-                param['detsize'], param['detsize']), \
+                param['detsize'][0], param['detsize'][1]), \
                 dtype=float, chunks=True, compression="gzip")
         savef.close()
 

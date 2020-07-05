@@ -1,0 +1,21 @@
+# detector topology file
+# compatible with yaml format
+
+# detector distance to sample, mm
+detd: 600.0
+
+# wavelength, angstrom
+wavelength: 5.0
+
+# detector size, [x,y], in pixel
+detsize: [123,123]
+
+# pixel side length, mm
+pixsize: 1.2
+
+# detector ADU of 1 eV energy photon
+adu_per_eV: 0.001
+
+# detector center [Cx,Cy], in pixel, the pixel is indexed from 0
+# set Null to use geometry center
+center: Null

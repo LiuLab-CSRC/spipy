@@ -24,6 +24,15 @@ class phOutput(PhModel):
     def __add_child(self, childobj):
         raise RuntimeError("[Error] phOutput node cannot have children !")
 
+    def clear(self):
+        self.eCons.clear()
+        self.eMods.clear()
+        self.stream_path.clear()
+        self.backgrounds.clear()
+        self.sample_rets.clear()
+        self.supports.clear()
+        self.output.clear()
+
     def run(self, datapack, rank=0):
         # append solutions of this rank
         if datapack.background is None:
@@ -44,9 +53,9 @@ class phOutput(PhModel):
             self.stream_path.extend(datapack.stream_path)
         return datapack
 
-    def merge(self, msize=1):
+    def merge(self, msize=1, mrank=0):
         # merge solutions of this rank, N repeats
-        if msize == 1:
+        if msize == 1 and mrank == 0:
             silence = False
         else:
             silence = True

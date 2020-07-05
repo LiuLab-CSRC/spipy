@@ -20,7 +20,6 @@ if __name__ == "__main__":
         config_input = {
             "pattern_path" : "pattern.npy",
             "mask_path" : "pat_mask.npy",
-            "center" : [61,61],
             "center_mask" : 3,
             "edge_mask" : [64,70],
             "edge_remove" : None,
@@ -40,7 +39,6 @@ if __name__ == "__main__":
         config_input = {
             "pattern_path" : "volume.npy",
             "mask_path" : None,
-            "center" : [62,62,62],
             "center_mask" : 5,
             "edge_mask" : [64,70],
             "edge_remove" : None,

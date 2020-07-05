@@ -5,9 +5,10 @@ if __name__ == '__main__':
     pdb = "./ico.pdb"
     methods = ["fft", "atomic"]
     config_param = {'detd' : 600.0, 'lambda' : 5.0, \
-        'detsize' : 128, 'pixsize' : 1.2, \
+        'detsize' : [128,130], 'pixsize' : 1.2, \
         'stoprad' : 0, 'polarization' : 'x', \
-        'num_data' : 7, 'fluence' : 1.0e15, 'absorption' : True, \
+        'num_data' : 5, 'fluence' : 1.0e11, 'absorption' : True, \
+        'adu_per_eV' : 0.001, 'detcenter' : [63.2,63.7], \
         'phy.scatter_factor' : True, 'phy.ram_first' : True, \
         'photons' : False, 'phy.projection' : True}
     euler_range = np.array([[0, np.pi/2], [0, np.pi*2],

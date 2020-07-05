@@ -62,11 +62,11 @@ def get_detector_config(config_file, show=False):
     try:
         detcstr = config.get('make_detector', 'center').split(' ')
         if len(detstr) == 1:
-            params['detc_x'] = int(detcstr[0])
-            params['detc_y'] = int(detcstr[0])
+            params['detc_x'] = float(detcstr[0])
+            params['detc_y'] = float(detcstr[0])
         else:
-            params['detc_x'] = int(detcstr[0])
-            params['detc_y'] = int(detcstr[1])
+            params['detc_x'] = float(detcstr[0])
+            params['detc_y'] = float(detcstr[1])
     except (configparser.NoOptionError, configparser.NoSectionError):
         params['detc_x']   = (params['dets_x']-1)/2.
         params['detc_y']   = (params['dets_y']-1)/2.

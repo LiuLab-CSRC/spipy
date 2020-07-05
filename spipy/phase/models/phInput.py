@@ -10,9 +10,7 @@ class phInput(PhModel):
         self.config_dict = config_dict
         self.data_reload = {}
         # data_reload = {"pattern" : ..., "mask" : ..., "initial" : ...}
-        if data_reload is not None:
-            for k, v in data_reload.items():
-                self.data_reload[k] = v
+        self.reload(data_reload)
         # node name
         if name is None:
             name = "Input"
@@ -22,6 +20,15 @@ class phInput(PhModel):
         # config bk
         self.config_bk["config_dict"] = self.config_dict.copy()
 
+    def reload(self, new_data):
+        # new_data = {"pattern" : ..., "mask" : ..., "initial" : ...}
+        new_data_template = ["pattern", "mask", "initial"]
+        if new_data is not None:
+            for k, v in new_data.items():
+                if k not in new_data_template:
+                    print("[WARN] data_reload unknown key : %s" % k)
+                self.data_reload[k] = v
+
     def after(self, fatherobj):
         raise RuntimeError("phInput node doesn't have father !")
 
@@ -30,7 +37,6 @@ class phInput(PhModel):
             { 
             "pattern_path" : xxx.npy,
             "mask_path" : xxx.npy, (1 is masked area)
-            "center" : [62,62],
             "center_mask" : 5,
             "edge_mask" : [60,64],
             "subtract_percentile" : False,
@@ -66,16 +72,16 @@ class phInput(PhModel):
         else:
             center = (np.array(pattern.shape)-1)/2.0
         # usermask
-        if self.config_dict['mask_path'] is not None:
-            if 'mask' in self.data_reload.keys():#self.config_dict.keys():
-                usermask = np.array(self.data_reload['mask'], dtype=int)
-            else:
-                usermask = np.load(self.config_dict['mask_path'])
+        if 'mask' in self.data_reload.keys():#self.config_dict.keys():
+            usermask = np.array(self.data_reload['mask'], dtype=int)
+        elif self.config_dict['mask_path'] is not None:
+            usermask = np.load(self.config_dict['mask_path'])
+        else:
+            usermask = None
+        if usermask is not None:
             if usermask.shape != pattern.shape:
                 raise RuntimeError("Input user mask has different size with input pattern !")
             good_pixel[np.where(usermask==1)] = 0
-        else:
-            usermask = None
         # center mask
         if self.config_dict['center_mask'] is not None and self.config_dict['center_mask']>0:
             hole = model_utils.make_holes(pattern.shape, center, self.config_dict['center_mask'])
@@ -107,6 +113,8 @@ class phInput(PhModel):
                 sample_ret = np.array(self.data_reload['initial'])
             else:
                 sample_ret = np.load(self.config_dict['initial_model'])
+            if sample_ret.shape != pattern.shape:
+                raise RuntimeError("Initial model has different size with input pattern !")
         else:
             sample_ret = np.random.random(size=pattern.shape)
         # subtract

@@ -224,4 +224,7 @@ class PhModel(object):
         # re-write this function
         return datapack
 
-
+    def clear(self):
+        # clear object data
+        # re-write this function if needed
+        pass

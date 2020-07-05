@@ -21,6 +21,14 @@ class phMerge(PhModel):
         super().__init__(name)
         # no config dict
 
+    def clear(self):
+        self.eCons.clear()
+        self.eMods.clear()
+        self.stream_path.clear()
+        self.backgrounds.clear()
+        self.sample_rets.clear()
+        self.supports.clear()
+
     def run(self, datapack, rank=0):
         # append solutions of this rank
         if datapack.background is None:

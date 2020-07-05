@@ -22,4 +22,6 @@ dependencies:
   - pillow=6.2.0
   - pip:
     - mrcfile==1.1.2
-
+    - vtk==8.1.2
+    - mayavi
+    - PyQt5

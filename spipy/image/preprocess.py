@@ -54,13 +54,13 @@ def help(module):
 		print("     *option: max_cc ( max cc for patterns to be identified as hits, -1~1 float, default=0.5)")
 		print("    -> Return: label ( 0/1 array, 1 stands for hit, the same order with 'dataset' )")
 	elif module=="cal_correction_factor":
-		print("This fuction calculates polarization correction and effective area correction factor")
+		print("This fuction calculates polarization correction and solid angle factor")
 		print("    -> Input: det_size ( [Nx, Ny] )")
 		print("              polarization ( 'x' or 'y' or 'none' )")
 		print("              detd ( detector distance, in mm )")
 		print("              pixsize ( pixel size, in mm )")
 		print("      option: center (detector center, default is None)")
-		print("    -> Output: correction_factor, shape=(Nx, Ny), should be applied to diffraction intensities")
+		print("    -> Output: correction_factor, shape=(Nx, Ny), should be multiplied to diffraction intensities")
 	else:
 		raise ValueError("No module names "+str(module))
 
@@ -375,7 +375,7 @@ def hit_find_pearson(dataset, background, radii_range=None, mask=None, max_cc=0.
 
 def cal_correction_factor(det_size, polarization, detd, pixsize, center=None):
 	'''
-		calculate polarization correction factor and effective area correction
+		calculate polarization correction, solid angle factor
 		Input:
 			det_size : [Nx, Ny]
 			polarization: 'x' or 'y' or 'none'
@@ -400,10 +400,8 @@ def cal_correction_factor(det_size, polarization, detd, pixsize, center=None):
 		# no polarization, (1+(cos2A)**2)/2, 2A is scattering angle
 		sin_ang_square = 1 - r_square / l_square / 2
 
-	# effective area correction
-	# 'effective area' means the area component of a pixel 
-	# that perpendicular to the laser direction, which is
-	# the actual area that recieve photons
-	cos_2A_square = detd**2 / l_square
+	# solid angle correction
+	# |I(q)|^2 * solid_angle * polarization
+	solid_angle = detd / np.sqrt(l_square) * pixsize**2 / l_square
 
-	return sin_ang_square * cos_2A_square
+	return sin_ang_square * solid_angle

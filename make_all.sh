@@ -191,7 +191,7 @@ if [ $? -ne 0 ];then echo "Command failed. Exit"; exit 1;fi
 
 # extract test data
 echo "==> Extracting test data"
-cd $root_folder/../test_spipy
+cd $root_folder/../demo
 tar -xzf test.tgz
 tar -xzf analyse/analyse.tgz -C ./analyse/
 tar -xzf image/image.tgz -C ./image/

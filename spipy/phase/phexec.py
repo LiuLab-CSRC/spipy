@@ -196,15 +196,16 @@ class Runner():
             json.dump([skeleton, input_node_id, model_set], fp)
         print("\nDump model to %s." % model_file)
 
+
     def run(self, repeat = 1):
-        import matplotlib.pyplot as plt
         datapack = None
         stack = []
         datapack_buff = {}
+        assert repeat >= 1, "repeat should >= 1"
         # repeats
         for j in range(repeat):
             if self.rank == 0 : print("\n>>> Rank 0 phasing repeat No.%d" % (j+1))
-            # for mulit-child node, use a stack
+            # for multi-child node, use a stack
             stack.clear()
             datapack_buff.clear()
             datapack = None
@@ -224,7 +225,8 @@ class Runner():
                         if i + 1 < children_num:
                             datapack_buff[tmp.id] = datapack.copy()
         # merge this rank
-        out = self.outputnode.merge(self.msize)
+        out = self.outputnode.merge(self.msize, self.rank)
+        print("\n--- Rank %d: %d repeats has completed." % (self.rank, repeat))
 
         if self.msize == 1:
             out["diffraction_amp"] = datapack.copy_diff_amp()
@@ -257,6 +259,20 @@ class Runner():
             else:
                 return None
 
+
+    def reset_network(self):
+        # clear data of the network
+        stack = []
+        for tmp in self.inputnodes:
+            tmp.clear()
+            stack.append(tmp)
+        while len(stack) > 0 :
+            this_node = stack.pop(-1)
+            this_node.clear()
+            for tmp in this_node.children:
+                stack.append(tmp)
+
+
     def save_h5(self, out, save_file):
         import h5py
         fp = h5py.File(save_file, "w")
@@ -268,6 +284,7 @@ class Runner():
         fp.create_dataset("convergence_error", data=out["eCon"], chunks=True)
         fp.create_dataset("diffraction_amplitute", data=out["diffraction_amp"], chunks=True, compression="gzip")
         fp.close()
+
 
     def plot_result(self, out):
         import matplotlib.pyplot as plt
