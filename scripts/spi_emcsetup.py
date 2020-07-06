@@ -62,9 +62,10 @@ if __name__ == '__main__':
         try:
             with h5py.File(input_h5, 'r') as fp:
                 mask = fp[args.mask_h5loc][()]
+            mask_file_ = os.path.join(output_folder, ".mask_temp.npy")
+            np.save(mask_file_, mask)
         except:
-            raise ValueError("Check -i and --mask_h5loc !")
-        mask_file_ = os.path.join(output_folder, ".mask_temp.npy")
+            raise ValueError("Check -i, -o and --mask_h5loc !")
         config['make_detector|in_mask_file'] = mask_file_
     
     # set up new project
