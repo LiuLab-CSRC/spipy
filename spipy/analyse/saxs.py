@@ -1,5 +1,6 @@
 import numpy as np
 import sys
+from scipy import stats
 from ..image import radp
 from . import q as spi_q
 
@@ -13,10 +14,18 @@ def help(module):
 		print("    -> Input: pattern (none negative numpy.ndarray, shape=(Nx, Ny))")
 		print("              estimated_center (estimated center of the pattern : (Cx, Cy), error in 20 pixels )")
 		print("      option: mask (0/1 binary pattern, shape=(Nx, Ny), 1 means masked area, 0 means useful area, default=None)")
-		print("      option: small_r (int, radius of search area for center allocation candidates, pixel)")
-		print("      option: large_r (int, radius of area for sampling frediel twin points, pixel)")
+		print("      option: small_r (int, radius of search area for center allocation candidates, pixel, default=None)")
+		print("      option: large_r (int, radius of area for sampling frediel twin points, pixel, default=None)")
 		print("    -> Output: center, a numpy 1d array, [cx, cy], int")
 		return
+	elif module=="center_refine":
+		print("This function is used to refine the center location by friedel_search")
+		print("    -> Input: pattern (none negative numpy.ndarray, shape=(Nx, Ny))")
+		print("              center (center from friedel_search, [Cx,Cy])")
+		print("      option: mask (0/1 binary pattern, shape=(Nx, Ny), 1 means masked area, 0 means useful area, default=None)")
+		print("      option: sampling (Number of sampled pixels for refinement, default=300)")
+		print("      option: roir (Radius of ROI for pixel sampling, in pixel, default=20)")
+		print("    -> Output: new_center, numpy array, [nCx,nCy], float")
 	elif module=="inten_profile_vaccurate":
 		print("This finction is used to calculate accumulate intensity profile of SPI patterns")
 		print("    -> Input: dataset (numpy.ndarray, shape=(Nd,Nx,Ny)) ")
@@ -79,6 +88,7 @@ def grid(input_patt):
 	else:
 		return
 
+
 # frediel search of SPI pattern to find center
 def friedel_search(pattern, estimated_center, mask=None, small_r=None, large_r=None):
 	if small_r is not None and int(small_r)<=0:
@@ -129,6 +139,31 @@ def friedel_search(pattern, estimated_center, mask=None, small_r=None, large_r=N
 			center = cen
 			score = this_score
 	return center.astype(int)
+
+
+# refine center
+def center_refine(pattern, center, mask=None, sampling=300, roir=20):
+	ROI = radp.circle(2, roir) + np.array(center)   # shape=(Np,2)
+	center_buff = []
+	if mask is not None:
+		pattern = pattern * (1-mask)
+	sampled_idx = np.random.choice(len(ROI), sampling, replace=False)
+	sampled_pos = ROI[sampled_idx,:]  # shape=(sample,2)
+	sampled_int = np.round(pattern[sampled_pos[:,0],sampled_pos[:,1]])
+	inv_pos = np.array(center)*2 - sampled_pos  # shape=(sample,2)
+	for ii, pos in enumerate(sampled_pos):
+		if mask[inv_pos[ii][0],inv_pos[ii][1]] == 1: continue
+		search_pos = np.mgrid[inv_pos[ii,0]-2:inv_pos[ii,0]+3,inv_pos[ii,1]-2:inv_pos[ii,1]+3].reshape(2,25)
+		search_int = np.round(pattern[search_pos[0],search_pos[1]]) # shape=(25,)
+		search_msk = mask[search_pos[0],search_pos[1]]
+		mean_int = (search_int+sampled_int[ii])/2.0
+		poisson_p = stats.poisson.pmf(search_int,mean_int) * stats.poisson.pmf(sampled_int[ii],mean_int) * (1-search_msk)
+		l_idx = np.argsort(poisson_p)[-1]
+		c_this = (search_pos[:,l_idx]+pos)/2.0
+		center_buff.append(c_this)
+	new_center = np.mean(center_buff, axis=0)
+	return new_center
+
 
 # calculate accumulate intensity profile of SPI patterns
 def inten_profile_vaccurate(dataset, mask, *exp_param):

@@ -197,6 +197,28 @@ class _CXIDB():
 			nf.close()
 		f.close()
 
+	def list_events(self, cxifile, reg=None, dim=2):
+		import h5py
+		import re
+		mydataset = []
+		events = {cxifile:{}}
+		fp = h5py.File(cxifile, 'r')
+		def _get_dataset(key):
+			if isinstance(fp[key], h5py._hl.dataset.Dataset):
+				if reg is not None and len(re.findall(reg, key)) > 0:
+					mydataset.append(key)
+		fp.visit(_get_dataset)
+		for ds in mydataset:
+			if len(fp[ds].shape) == dim+1:
+				evt_num = fp[ds].shape[0]
+			elif len(fp[ds].shape) == dim:
+				evt_num = 1
+			else:
+				continue
+			events[cxifile][ds] = evt_num
+		fp.close()
+		return events
+
 def cxi_parser(cxifile, out='std'):
 	cxidb = _CXIDB()
 	cxidb.parser(cxifile, out)
