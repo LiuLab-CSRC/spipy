@@ -4,6 +4,7 @@ import shutil
 import argparse
 import numpy as np
 import yaml
+import h5py
 from spipy.simulate import sim_adu
 from mpi4py import MPI
 
@@ -62,8 +63,11 @@ if __name__ == '__main__':
 			print(err)
 			print("Simulation output is saved as %s" % saved_path)
 
-
-
+	# write argv log
+	if m_rank == 0:
+		with h5py.File(args.outf, "a") as fp:
+			fp.create_dataset("information", data=h5py.Empty(int))
+			fp["information"].attrs["cmd_line"] = " ".join(sys.argv)
 
 
 

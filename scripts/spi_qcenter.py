@@ -135,4 +135,11 @@ if __name__ == '__main__':
                     ffname = re.sub(r"/", r"%", fname)
                     fp.create_dataset("%s/%s"%(ffname,dname), data=cdata)
 
+    if m_rank == 0:
+        with h5py.File(output_file, 'a') as fp:
+            fp.create_dataset("information", data=h5py.Empty(int))
+            fp["information"].attrs["cmd_line"] = " ".join(sys.argv)
+
     MPI.Finalize()
+
+    
