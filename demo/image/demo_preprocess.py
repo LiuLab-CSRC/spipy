@@ -80,3 +80,14 @@ if __name__ == "__main__":
 	plt.imshow(inten_corr)
 	plt.title("intensity correction factor\n(polarization='y')")
 	plt.show()
+
+	print("\n(6) test preprocess.avg_pooling")
+	newdata = preprocess.avg_pooling(data, 3, True)
+	plt.subplot(1,2,1)
+	plt.imshow(np.log(1+data[0]))
+	plt.title("Pattern")
+	plt.subplot(1,2,2)
+	plt.imshow(np.log(1+newdata[0]))
+	plt.title("Resized pattern")
+	plt.show()
+

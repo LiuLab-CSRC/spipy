@@ -335,6 +335,9 @@ class MainWindow(QtWidgets.QMainWindow):
             item = FileItem(filepath=filepath)
             if item.childCount() > 0:
                 self.ui.fileList.insertTopLevelItem(0, item)
+            else:
+                QtWidgets.QMessageBox.warning(self, 'Message',
+                    "The data file is empty ! \n(%s)" % filepath, QtWidgets.QMessageBox.Yes)
 
     def loadData(self, filepath, datasetName):
         self.filepath = str(filepath)
@@ -464,7 +467,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     dispData = self.imageData[self.frameIndex, :, :]
                 else:
                     #print_with_timestamp("ERROR! Index out of range. %s axis frame %d" %(self.axis, self.frameIndex))
-                    QtWidgets.QMessageBox.question(self, 'Error',
+                    QtWidgets.QMessageBox.critical(self, 'Error',
                             "ERROR! Index out of range. %s axis frame %d" % (self.axis, self.frameIndex), QtWidgets.QMessageBox.Ok)
                     return None
             elif self.axis == 'y':
@@ -472,7 +475,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     dispData = self.imageData[:, self.frameIndex, :]
                 else:
                     #print_with_timestamp("ERROR! Index out of range. %s axis frame %d" %(self.axis, self.frameIndex))
-                    QtWidgets.QMessageBox.question(self, 'Error',
+                    QtWidgets.QMessageBox.critical(self, 'Error',
                             "ERROR! Index out of range. %s axis frame %d" % (self.axis, self.frameIndex), QtWidgets.QMessageBox.Ok)
                     return None
             else:
@@ -480,7 +483,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     dispData = self.imageData[:, :, self.frameIndex]
                 else:
                     #print_with_timestamp("ERROR! Index out of range. %s axis frame %d" %(self.axis, self.frameIndex))
-                    QtWidgets.QMessageBox.question(self, 'Error',
+                    QtWidgets.QMessageBox.critical(self, 'Error',
                             "ERROR! Index out of range. %s axis frame %d" % (self.axis, self.frameIndex), QtWidgets.QMessageBox.Ok)
                     return None
         elif len(self.imageShape) == 2:
@@ -661,6 +664,10 @@ class MainWindow(QtWidgets.QMainWindow):
             if action == deleteAction:
                 #print('deleting selected file')
                 for item in self.ui.fileList.selectedItems():
+                    if self.h5obj is not None:
+                        if item.filepath == self.h5obj.filename:
+                            self.h5obj.close()
+                            self.h5obj = None
                     self.ui.fileList.takeTopLevelItem(self.ui.fileList.indexOfTopLevelItem(item))
 
     def applyMaskSlot(self, _, mask):
@@ -822,7 +829,7 @@ def show_data_viewer(parent):
     try:
         data_viewer_window.show()
     except:
-        QtWidgets.QMessageBox.question(data_viewer_window, 'Error',
+        QtWidgets.QMessageBox.critical(data_viewer_window, 'Error',
                     "Sorry for th bug T_T" , QtWidgets.QMessageBox.Ok)
 
 
@@ -843,7 +850,7 @@ def add_files(files):
                 raise ValueError("boomb!")
             data_viewer_window.maybeAddFile(f)
         except:
-            reply = QtWidgets.QMessageBox.question(None, 'Error',
+            reply = QtWidgets.QMessageBox.critical(None, 'Error',
                     "Faile to load file %s" % f, QtWidgets.QMessageBox.Ok)
 
 if __name__ == '__main__':

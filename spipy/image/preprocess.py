@@ -61,6 +61,12 @@ def help(module):
 		print("              pixsize ( pixel size, in mm )")
 		print("      option: center (detector center, default is None)")
 		print("    -> Output: correction_factor, shape=(Nx, Ny), should be multiplied to diffraction intensities")
+	elif module=="avg_pooling":
+		print("This function downsamples input patterns by a given factor")
+		print("    -> Input: dataset ( single or multiple patterns, shape=[Np, Nx, Ny] or [Nx, Ny] )")
+		print("              factor (dowsampling factor, int)")
+		print("     *option: padding (whether to pad zero on edges if the shape is not a multiple of factor, bool, default=False)")
+		print("    -> Output: new dataset, shape=(Np,floor(Nx/factor),floor(Ny/factor)) if padding=False, (Np,ceil(Nx/factor),ceil(Ny/factor)) if padding=True")
 	else:
 		raise ValueError("No module names "+str(module))
 
@@ -405,3 +411,44 @@ def cal_correction_factor(det_size, polarization, detd, pixsize, center=None):
 	solid_angle = detd / np.sqrt(l_square) * pixsize**2 / l_square
 
 	return sin_ang_square * solid_angle
+
+
+def avg_pooling(dataset, factor, padding=False):
+	'''
+		apply average pooling on patterns
+		Input:
+			dataset : [Np, Nx, Ny] or [Nx, Ny]
+			factor : averaging factor, integer
+			padding : whether to padding edges if the shape is not a multiple of factor, bool
+	'''
+	factor = int(factor)
+	ys,xs = dataset.shape[-2:]
+	if padding:
+		if ys%factor > 0: nys = (ys//factor+1)*factor
+		else: nys = ys
+		if xs%factor > 0: nxs = (xs//factor+1)*factor
+		else: nxs = xs
+	else:
+		nys = ys-(ys % factor)
+		nxs = xs-(xs % factor)
+	if len(dataset.shape) == 2:
+		if padding:
+			crarr = np.zeros([nys, nxs])
+			crarr[:ys,:xs] = dataset
+		else:
+			crarr = dataset[:nys,:nxs]
+		dsarr = np.mean(np.concatenate([[crarr[i::factor,j::factor] 
+			for i in range(factor)] 
+			for j in range(factor)]), axis=0)
+	elif len(dataset.shape) == 3:
+		if padding:
+			crarr = np.zeros([dataset.shape[0], nys, nxs])
+			crarr[:,:ys,:xs] = dataset
+		else:
+			crarr = dataset[:,:nys,:nxs]
+		dsarr = np.mean(np.concatenate([[crarr[:,i::factor,j::factor] 
+			for i in range(factor)] 
+			for j in range(factor)]), axis=0)
+	else:
+		raise RuntimeError("Input dataset should be 2 or 3 dimension.")
+	return dsarr
