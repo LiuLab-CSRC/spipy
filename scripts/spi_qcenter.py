@@ -137,8 +137,7 @@ if __name__ == '__main__':
 
     if m_rank == 0:
         with h5py.File(output_file, 'a') as fp:
-            fp.create_dataset("information", data=h5py.Empty(int))
-            fp["information"].attrs["cmd_line"] = " ".join(sys.argv)
+            fp.create_dataset("information/cmd_line", data=" ".join(sys.argv))
 
     MPI.Finalize()
 

@@ -67,10 +67,7 @@ class phInput(PhModel):
         pattern[pattern < 0] = 0
         good_pixel = np.ones(pattern.shape, dtype=int)
         # center
-        if self.config_dict['center'] is not None:
-            center = np.array(self.config_dict['center'],dtype=float)
-        else:
-            center = (np.array(pattern.shape)-1)/2.0
+        center = (np.array(pattern.shape)-1)/2.0
         # usermask
         if 'mask' in self.data_reload.keys():#self.config_dict.keys():
             usermask = np.array(self.data_reload['mask'], dtype=int)

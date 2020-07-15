@@ -88,7 +88,6 @@ if __name__ == '__main__':
 				for j, dt in enumerate(datasets):
 					num = evts[file][dt]
 					dt_dim = len(fp[dt].shape)
-					num_pattern += num
 					if powder is None:
 						powder = np.zeros(fp[dt].shape[-2:])
 					for k in range(num):
@@ -98,6 +97,7 @@ if __name__ == '__main__':
 						if dt_dim == 2: powder += fp[dt][()]
 						else: powder += fp[dt][k]
 						pi += 1
+						num_pattern += 1
 		elif fext == ".tif":
 			if pi % m_size != m_rank:
 				pi += 1
@@ -143,7 +143,7 @@ if __name__ == '__main__':
 			fp.create_dataset("mask", data=mask_bg, chunks=True)
 			fp.create_dataset("bg", data=mean_bg, chunks=True)
 			fp.create_dataset("information/user_mask", data=mask, chunks=True)
-			fp["information"].attrs["cmd_line"] = " ".join(sys.argv)
+			fp.create_dataset("information/cmd_line", data=" ".join(sys.argv))
 		# save log
 		end_time = time.time()
 		save_log = os.path.join(output_folder, "darkcal.log")

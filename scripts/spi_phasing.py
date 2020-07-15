@@ -224,9 +224,8 @@ if __name__ == '__main__':
         
         if m_rank == 0:
             with h5py.File(savefile, 'a') as fp:
-                fp.create_dataset("information", data=h5py.Empty(int))
-                fp["information"].attrs["dataset_path"] = pattern_serial
-                fp["information"].attrs["cmd_line"] = " ".join(sys.argv)
+                fp.create_dataset("information/dataset_path", data=pattern_serial)
+                fp.create_dataset("information/cmd_line", data=" ".join(sys.argv))
 
     # dump model
     if m_rank == 0 and args.save_phaser.upper() != "NONE":

@@ -71,10 +71,11 @@ if __name__ == "__main__":
 
     # Dump model
     runner.dump_model("temp_model.json", skeleton=False)
-'''
+
     # Reload model
+    comm.barrier()
     runner2 = phexec.Runner(inputnodes = None, outputnode = None, \
                 loadfile = "temp_model.json", reload_dataset = {0:newdataset}, comm = comm)
     out = runner2.run(repeat = 1)
-'''
+
 

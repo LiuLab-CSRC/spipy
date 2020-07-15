@@ -26,6 +26,7 @@ if __name__ == '__main__':
 	parser.add_argument("--stoprad", type=int, default=0, help="Radius of beam stop, pixel, default=0.")
 	parser.add_argument("--fluence", type=float, default=1.0e11, help="Laser fluence (photons/pulse), default=1e15.")
 	parser.add_argument("--polarization", type=str, choices=['x','y','none'], default='none', help="Laser polarization direction, 'x' or 'y' or 'none', default='none'.")
+	parser.add_argument("--b_factor", type=float, default=20.0, help="B-factor in Angstrom^2, atom_displacement=sqrt(B_factor/79).")
 	parser.add_argument("--absorption", action="store_true", default=False, help="Set to consider absorption effect into account.")
 	parser.add_argument("--scatter_factor", action="store_true", default=False, help="Set to use scattering factor in the simulation.")
 	parser.add_argument("--photons", action="store_true", default=False, help="Set to output photon patterns (poisson noise added).")
@@ -39,14 +40,14 @@ if __name__ == '__main__':
 		topol = yaml.load(fp, Loader=yaml.FullLoader)
 	pdb = args.inpf
 	method = args.method
-	config_param = {'detd' : topol['detd'], 'lambda' : topol['wavelength'], \
-					'detsize' : topol['detsize'], 'pixsize' : topol['pixsize'], \
+	config_param = {'detd' : float(topol['detd']), 'lambda' : float(topol['wavelength']), \
+					'detsize' : topol['detsize'], 'pixsize' : float(topol['pixsize']), \
 					'stoprad' : args.stoprad, 'polarization' : args.polarization, \
 					'num_data' : args.numdata, 'fluence' : args.fluence, \
-					'adu_per_eV' : topol['adu_per_eV'], 'detcenter' : topol['center'], \
+					'adu_per_eV' : float(topol['adu_per_eV']), 'detcenter' : topol['center'], \
 					'absorption' : args.absorption, 'phy.scatter_factor' : args.scatter_factor, \
 					'photons' : args.photons, 'phy.projection' : args.projection, \
-					'phy.ram_first' : True}
+					'phy.ram_first' : True, 'phy.b_factor' : args.b_factor}
 	euler_range = np.array([[0, np.pi*2], [0, np.pi*2], [0, np.pi*2]])
 	save_dir = os.path.abspath(os.path.dirname(args.outf))
 	
@@ -66,8 +67,7 @@ if __name__ == '__main__':
 	# write argv log
 	if m_rank == 0:
 		with h5py.File(args.outf, "a") as fp:
-			fp.create_dataset("information", data=h5py.Empty(int))
-			fp["information"].attrs["cmd_line"] = " ".join(sys.argv)
+			fp.create_dataset("information/cmd_line", data=" ".join(sys.argv))
 
 
 

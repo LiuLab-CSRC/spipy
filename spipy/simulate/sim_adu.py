@@ -32,11 +32,11 @@ class simulation():
     config_param = {'detd' : 200.0, 'lambda' : 2.5, \
                     'detsize' : [128, 128], 'pixsize' : 0.3, \
                     'stoprad' : 0, 'polarization' : 'x', \
-                    'num_data' : 100, 'fluence' : 1.5e14, \
+                    'num_data' : 100, 'fluence' : 1.5e11, \
                     'adu_per_eV' : 0.001, 'detcenter' : None, \
                     'photons' : False, 'absorption' : True, \
                     'phy.scatter_factor' : True, 'phy.ram_first' : True, \
-                    'phy.projection' : True }
+                    'phy.projection' : True, 'phy.b_factor' : 10.0 }
     # template variables
     pdb_file = None  # pdb file name
     euler = None  # [intrisinc] alpha 0,2pi ; beta 0,pi ; gamma 0,2pi ; shape=(Ne,3)
@@ -60,12 +60,15 @@ class simulation():
         print(fmt % ("Method", simulation.sim_methods[self.__method]))
         print(fmt % ("Detector Size", str((det_lx,det_ly))))
         print(fmt % ("Detector Distance (mm)", str(self.config_param['detd'])))
+        print(fmt % ("Detector Center", str(self.config_param['detcenter'])))
         print(fmt % ("Pixel Size (mm)", str(self.config_param['pixsize'])))
         print(fmt % ("ADU per eV ", str(self.config_param['adu_per_eV'])))
         print(fmt % ("Wave Length (A)", str(self.config_param['lambda'])))
         print(fmt % ("Save Photons", str(self.config_param['photons'])))
         print(fmt % ("Polarization", self.config_param['polarization']))
         print(fmt % ("Absorption", self.config_param['absorption']))
+        print(fmt % ("Scattering Factor", self.config_param['phy.scatter_factor']))
+        print(fmt % ("B-factor", str(self.config_param['phy.b_factor'])))
         print(fmt % ("Laser Fluence", "%.2e" % self.config_param['fluence']))
         for k, v in kwargs.items():
             print(fmt % (k, str(v)))
@@ -90,6 +93,9 @@ class simulation():
                     raise ValueError("The data type of '"+key+"' in param is wrong")
             else:
                 raise ValueError('param has unknown items')
+        if self.config_param['detcenter'] is None:
+            self.config_param['detcenter'] = (np.array(self.config_param['det_size'])-1)/2.0
+            self.config_param['detcenter'] = self.config_param['detcenter'].tolist()
         self.k0 = np.array([0,0,1])
         self.inten_correction = self.cal_inten_correction()  # shape=(detsize,detsize)
         # read pdb
@@ -123,6 +129,22 @@ class simulation():
                                             self.config_param['pixsize'], \
                                             self.config_param['detcenter'])
         return correction
+
+    def shift_atom_pos(self, atom_pos):
+        # add displacement to atom positions according to b-factor, using a harmonic oscillator model
+        # input atom_pos should be numpy array, shape=(Nr,3)
+        if self.config_param["phy.b_factor"] <= 0:
+            return atom_pos
+        Nr = len(atom_pos)
+        A = np.sqrt(self.config_param["phy.b_factor"]/79.0)
+        rho = A * np.sin(np.random.rand(Nr) * np.pi/2) # shape=(Nr,), value~[0,A]
+        theta = np.random.rand(Nr) * np.pi
+        phi = np.random.rand(Nr) * np.pi * 2
+        atom_pos[:,2] += rho * np.cos(theta) # z-axis shift
+        tmp = rho * np.sin(theta)
+        atom_pos[:,1] += tmp * np.sin(phi) # y-axis shift
+        atom_pos[:,0] += tmp * np.cos(phi) # x-axis shift
+        return atom_pos
 
     def generate_euler(self, mode='random', order='zxz', arange=None, predefined=None): 
         if arange is None:
@@ -329,11 +351,7 @@ class simulation():
         else:
             obs_ati = ati
         # calculate detector information
-        if self.config_param['detcenter'] is None:
-            det_cenx = (det_lx-1)/2.0
-            det_ceny = (det_ly-1)/2.0
-        else:
-            det_cenx, det_ceny = self.config_param['detcenter']
+        det_cenx, det_ceny = self.config_param['detcenter']
         detx, dety = np.mgrid[0:det_lx,0:det_ly]        # here in pixel
         detx = detx.flatten()
         dety = dety.flatten()
@@ -369,6 +387,7 @@ class simulation():
             print('\nRank %d is generating %dth patterns' %(m_rank, ind+1))
             time0 = time.time()
             dr = self.rotate_mol(euler_angle) # dr.shape=(Nr,3) the position vector of atoms, in angstrom
+            dr = self.shift_atom_pos(dr) # dr.shape=(Nr,3), atom position after displacement, in angstrom
             if projections is not None:
                 # toy projection of the molecule onto the xOy plane 
                 center = (np.array([det_lx, det_ly])-1)/2.0
@@ -482,6 +501,7 @@ def __single_process(method, pdb_file, param, euler_mode='random', euler_order='
         savef = h5py.File(filename, 'w')
         savef.create_dataset('oversampling_rate', data=dataset['oversampling_rate'])
         savef.create_dataset('rotation_order', data=dataset['rotation_order'])
+        savef.create_dataset('method', data=method)
         savef.create_dataset('patterns', data=dataset['patterns'], chunks=True, compression="gzip")
         if dataset['projections'] is not None:
             savef.create_dataset('projections', data=dataset['projections'], chunks=True, compression="gzip")  
