@@ -38,7 +38,7 @@ if __name__ == '__main__':
     for afile in files:
         # file type
         if args.filetype == filetype[0]:
-            file_ext = os.path.splitext(afile)[-1]
+            file_ext = os.path.splitext(afile)[-1].lower()
             if file_ext in [".h5", ".cxi"]:
                 this_filetype = filetype[1]
             elif file_ext == ".tif":
@@ -51,7 +51,7 @@ if __name__ == '__main__':
         if this_filetype in filetype[1:3]:
             events = CXIFILE.list_events(os.path.abspath(afile), reg, 2)
         elif this_filetype == filetype[3]:
-            events = {os.path.abspath(afile):{"default":1}}
+            events = {os.path.abspath(afile):{"default":[1, None]}}
         else:
             raise ValueError("Unknown file type %s." % args.filetype)
 

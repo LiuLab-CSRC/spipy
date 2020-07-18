@@ -60,7 +60,7 @@ if __name__ == '__main__':
         if not os.path.exists(args.maskfile):
             if m_rank == 0: print("[Error] Input maskfile is invalid.")
             sys.exit(0)
-        mext = os.path.splitext(args.maskfile)[-1]
+        mext = os.path.splitext(args.maskfile)[-1].lower()
         try:
             if mext == ".npy":
                 mask = np.load(args.maskfile)
@@ -80,7 +80,7 @@ if __name__ == '__main__':
     pi = 0
     center = {}
     for i, file in enumerate(files):
-        fext = os.path.splitext(file)[-1]
+        fext = os.path.splitext(file)[-1].lower()
         datasets = evts[file].keys()
         center[file] = {}
         if fext == ".h5" or fext == ".cxi":
@@ -88,7 +88,9 @@ if __name__ == '__main__':
                 for j, dt in enumerate(datasets):
                     center[file][dt] = {}
                     dt_dim = len(fp[dt].shape)
-                    num = evts[file][dt]
+                    num = evts[file][dt][0]
+                    if init_c is None:
+                        init_c = np.array(evts[file][dt][1])//2
                     for k in range(num):
                         if pi % m_size != m_rank:
                             pi += 1
@@ -125,7 +127,7 @@ if __name__ == '__main__':
                 if fname not in result.keys(): result[fname] = {}
                 for dname, cdict in ddict.items():
                     if dname not in result[fname].keys():
-                        num = evts[fname][dname]
+                        num = evts[fname][dname][0]
                         result[fname][dname] = [[-1,-1]] * num
                     for idx, c in cdict.items():
                         result[fname][dname][idx] = c

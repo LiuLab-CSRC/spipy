@@ -57,7 +57,7 @@ if __name__ == '__main__':
 		if not os.path.exists(args.maskfile):
 			if m_rank == 0: print("[Error] Input maskfile is invalid.")
 			sys.exit(0)
-		mext = os.path.splitext(args.maskfile)[-1]
+		mext = os.path.splitext(args.maskfile)[-1].lower()
 		try:
 			if mext == ".npy":
 				mask = np.load(args.maskfile)
@@ -81,15 +81,15 @@ if __name__ == '__main__':
 	num_pattern = 0
 	powder = None
 	for i, file in enumerate(files):
-		fext = os.path.splitext(file)[-1]
+		fext = os.path.splitext(file)[-1].lower()
 		datasets = evts[file].keys()
 		if fext == ".h5" or fext == ".cxi":
 			with h5py.File(file, 'r') as fp:
 				for j, dt in enumerate(datasets):
-					num = evts[file][dt]
+					num = evts[file][dt][0]
 					dt_dim = len(fp[dt].shape)
 					if powder is None:
-						powder = np.zeros(fp[dt].shape[-2:])
+						powder = np.zeros(evts[file][dt][1])
 					for k in range(num):
 						if pi % m_size != m_rank:
 							pi += 1
@@ -104,8 +104,9 @@ if __name__ == '__main__':
 				continue
 			dt = list(evts[file].keys())[0]
 			if powder is None:
-				powder = np.zeros(fp[dt].shape)
-			powder += np.asarray(Image.open(file))
+				powder = np.asarray(Image.open(file))
+			else:
+				powder += np.asarray(Image.open(file))
 			num_pattern += 1
 		else:
 			if m_rank == 0: print("Unknown data file format (%s)." % fext)
@@ -142,7 +143,8 @@ if __name__ == '__main__':
 		with h5py.File(save_h5, "w") as fp:
 			fp.create_dataset("mask", data=mask_bg, chunks=True)
 			fp.create_dataset("bg", data=mean_bg, chunks=True)
-			fp.create_dataset("information/user_mask", data=mask, chunks=True)
+			if mask is not None:
+				fp.create_dataset("information/user_mask", data=mask.astype(int), chunks=True)
 			fp.create_dataset("information/cmd_line", data=" ".join(sys.argv))
 		# save log
 		end_time = time.time()

@@ -211,11 +211,13 @@ class _CXIDB():
 		for ds in mydataset:
 			if len(fp[ds].shape) == dim+1:
 				evt_num = fp[ds].shape[0]
+				dshape = fp[ds].shape[1:]
 			elif len(fp[ds].shape) == dim:
 				evt_num = 1
+				dshape = fp[ds].shape[0:]
 			else:
 				continue
-			events[cxifile][ds] = evt_num
+			events[cxifile][ds] = [evt_num, dshape]
 		fp.close()
 		return events
 
