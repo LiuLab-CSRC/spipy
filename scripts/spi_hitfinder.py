@@ -6,6 +6,7 @@ import h5py
 import time
 import shutil
 import numpy as np
+from scipy.sparse import csr_matrix
 from PIL import Image
 from spipy import analyse, image
 from mpi4py import MPI
@@ -54,6 +55,7 @@ if __name__ == '__main__':
 	parser.add_argument("--thres", type=float, default=10, help="Chi-square threshold, patterns whose chi-qsuare value are larger than the threshold are identified as hit. Default=10.")
 	parser.add_argument("--radii_range", type=str, default="none", help="The radii of a ring area used for hit-finding, string like 'Ra,Rb', default='none'.")
 	parser.add_argument("--initc", type=str, default="none", help="A roughly estimated center location, 'Cx,Cy', default is using geometry center.")
+	parser.add_argument("--low_mem_use", action="store_true", default=False, help="Use sparse matrix to save RAM, the option is closed for default.")
 	parser.add_argument("-j", type=int, default=1, help="Number of processes, default=1.")
 	args = parser.parse_args()
 
@@ -104,7 +106,7 @@ if __name__ == '__main__':
 		start_time = time.time()
 	# save parameters
 	if m_rank == 0:
-		dark_cal_file = os.path.join(args.outfolder, "darkcal.h5")
+		dark_cal_file = os.path.join(args.outfolder, "calibration.h5")
 		with h5py.File(dark_cal_file, "w") as fp:
 			fp.create_dataset("bg", data=background)
 			fp.create_dataset("mask", data=mask)
@@ -131,7 +133,7 @@ if __name__ == '__main__':
 	all_score = []
 	for i, file in enumerate(files):
 		print("- Rank %d : Processing %s ..." % (m_rank, file))
-		fext = os.path.splitext(file)[-1]
+		fext = os.path.splitext(file)[-1].lower()
 		datasets = evts[file].keys()
 		result_h5_file = os.path.join(args.outfolder, "file%d_"%i+os.path.splitext(os.path.basename(file))[0]+"_part%d.hits.h5"%m_rank)
 		if os.path.exists(result_h5_file): os.remove(result_h5_file)
@@ -157,7 +159,10 @@ if __name__ == '__main__':
 						num_pattern += 1
 						if label > 0:
 							num_hits += 1
-							hits.append(this_pat)
+							if not args.low_mem_use:
+								hits.append(this_pat)
+							else:
+								hits.append(csr_matrix(this_pat))
 							hits_serial.append(k)
 							write_log(log_file, ["processed", "hits"], [num_pattern, num_hits])
 			elif fext == ".tif":
@@ -176,7 +181,10 @@ if __name__ == '__main__':
 				num_pattern += 1
 				if label > 0:
 					num_hits += 1
-					hits.append(this_pat)
+					if not args.low_mem_use:
+						hits.append(this_pat)
+					else:
+						hits.append(csr_matrix(this_pat))
 					hits_serial.append(k)
 					write_log(log_file, ["processed", "hits"], [num_pattern, num_hits])
 			else:
@@ -185,10 +193,22 @@ if __name__ == '__main__':
 			# save results
 			if len(hits) > 0:
 				with h5py.File(result_h5_file, "a") as fp:
-					fp.create_dataset("data_%d/hits/data" % j, data=hits, chunks=True, compression="gzip")
 					fp.create_dataset("data_%d/chi_score" % j, data=all_score)
 					fp.create_dataset("data_%d/hits/index" % j, data=hits_serial)
 					fp.create_dataset("data_%d/RawDataPathString" % j, data="%s::%s"%(file,dt))
+				if not args.low_mem_use:
+					with h5py.File(result_h5_file, "a") as fp:
+						fp.create_dataset("data_%d/hits/data" % j, data=hits, chunks=True, compression="gzip")
+				else:
+					dtype = hits[0].data.dtype
+					dsize = len(hits)
+					dshap = hits[0].shape
+					fp = h5py.File(result_h5_file, "a")
+					fp.create_dataset("data_%d/hits/data" % j, data=np.zeros([dsize,dshap[0],dshap[1]],dtype=dtype), chunks=True, compression="gzip")
+					for idx in range(dsize):
+						csrm = hits.pop(0)
+						fp["data_%d/hits/data" % j][idx] = csrm.todense()
+					fp.close()
 			# clear buffer
 			hits.clear()
 			hits_serial.clear()
