@@ -9,7 +9,7 @@
 #### Content
 1. Program -> this repository
 2. GUI -> './bin/spi_viewer' and <https://github.com/estonshi/spipy_gui>
-2. Wiki -> <https://estonshi.github.io/spipy-wiki/>, pages source code <https://github.com/estonshi/spipy-wiki>
+2. Wiki -> <https://eston.gitee.io/spipy-wiki/>(中文文档), <https://estonshi.github.io/spipy-wiki/>(English Wiki)
 
 #### Main changes after v3.1
 1. Add scripts for users to run tasks directly in terminal.
