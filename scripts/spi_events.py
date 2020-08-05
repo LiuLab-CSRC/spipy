@@ -16,7 +16,7 @@ if __name__ == '__main__':
         allow_abbrev=False,
         description = "Parse CXI/HDF5/TIF... files and list events.")
     parser.add_argument("-f", "--files", type=str, help="The data files to parse events from, use '%%' as wildcard. Eg, './dataset/%%.h5'.", required=True)
-    parser.add_argument("-o", "--output", type=str, help="The output events file.", required=True)
+    parser.add_argument("-o", "--output", type=str, help="Append results to output events file.", required=True)
     parser.add_argument("-r", "--reg", type=str, default="none", help="Data location inside HDF5 file, use '%%' as wildcard. Eg, 'entry_1/%%/data'. Default=none.")
     parser.add_argument("-y", "--filetype", type=str, choices=filetype, default=filetype[0], help="Force input data file type, default=none and the data file type will be determined by its extension.")
     args = parser.parse_args()
